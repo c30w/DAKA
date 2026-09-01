@@ -143,11 +143,52 @@ class HabitWidget : GlanceAppWidget() {
 }
 
 /**
- * 共享：一个习惯的「清单行」——左侧复选框圆 + 右侧 emoji+名称，整行可点切换。
- * 2×2 和 1×4 都用它（1×4 把它竖着装进卡片）。
+ * 共享：复选框圆。2×2 的 [HabitCheckRow] 和 1×4 的 HabitChip 都用它，
+ * 避免两边各画一遍「绿底白勾 / 灰环嵌套」的重复逻辑。
  *
- * 复选框用两层 Box 叠出「环」：未打卡外层灰环 + 内层深色，看着就是空心圆；
- * 已打卡单层绿圆 + 白色对勾。这样不依赖 border API，各版本都稳。
+ * 已打卡 = 绿圆 + 白色对勾；未打卡 = 灰环 + 内层深圆（看着像空心圆）。
+ * 不依赖 border API，各版本都稳。sizeDp 为外圆直径，对勾字号 checkSp。
+ */
+@Composable
+internal fun HabitCheckCircle(isDone: Boolean, sizeDp: Int, checkSp: Int) {
+    if (isDone) {
+        Box(
+            modifier = GlanceModifier
+                .size(sizeDp.dp)
+                .background(ColorProvider(Color(0xFF98C379)))
+                .cornerRadius((sizeDp / 2).dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "✓",
+                style = TextStyle(
+                    color = ColorProvider(Color(0xFFFFFFFF)),
+                    fontSize = checkSp.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        }
+    } else {
+        Box(
+            modifier = GlanceModifier
+                .size(sizeDp.dp)
+                .background(ColorProvider(Color(0xFF4A4A5A)))
+                .cornerRadius((sizeDp / 2).dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = GlanceModifier
+                    .size((sizeDp - 4).dp)
+                    .background(ColorProvider(Color(0xFF1E1E2E)))
+                    .cornerRadius(((sizeDp - 4) / 2).dp)
+            ) {}
+        }
+    }
+}
+
+/**
+ * 共享：一个习惯的「清单行」——左侧复选框圆 + 右侧 emoji+名称，整行可点切换。
+ * 复选框圆用 [HabitCheckCircle]，这里只负责横排布局。
  */
 @Composable
 private fun HabitCheckRow(habit: Habit, isDone: Boolean) {
@@ -161,39 +202,7 @@ private fun HabitCheckRow(habit: Habit, isDone: Boolean) {
             .padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (isDone) {
-            Box(
-                modifier = GlanceModifier
-                    .size(26.dp)
-                    .background(ColorProvider(Color(0xFF98C379)))
-                    .cornerRadius(13.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "✓",
-                    style = TextStyle(
-                        color = ColorProvider(Color(0xFFFFFFFF)),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-            }
-        } else {
-            Box(
-                modifier = GlanceModifier
-                    .size(26.dp)
-                    .background(ColorProvider(Color(0xFF4A4A5A)))
-                    .cornerRadius(13.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = GlanceModifier
-                        .size(22.dp)
-                        .background(ColorProvider(Color(0xFF1E1E2E)))
-                        .cornerRadius(11.dp)
-                ) {}
-            }
-        }
+        HabitCheckCircle(isDone = isDone, sizeDp = 26, checkSp = 15)
         Spacer(GlanceModifier.width(10.dp))
         Text(
             text = "${habit.emoji} ${habit.name.take(10)}",
@@ -229,9 +238,6 @@ suspend fun refreshHabitWidgets(context: Context) {
     HabitWidgetSmall().updateAll(context)
     HabitWidgetWide().updateAll(context)
 }
-
-/** 兼容旧调用名：只刷新 2×2。现在全部刷新走 [refreshHabitWidgets]。 */
-suspend fun refreshHabitWidget(context: Context) = refreshHabitWidgets(context)
 
 // ------------------------------------------------------------------
 // 小组件内直接打卡（无需打开 App）

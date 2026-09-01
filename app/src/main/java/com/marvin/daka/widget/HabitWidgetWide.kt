@@ -158,7 +158,7 @@ class HabitWidgetWide : GlanceAppWidget() {
 
 /**
  * 1×4 里的一张「习惯卡片」：复选框圆在上、emoji+名称在下，整张可点。
- * 和 2×2 的 [HabitCheckRow] 同一套视觉语言，只是竖着堆成卡片。
+ * 复选框圆复用 [HabitCheckCircle]，这里只负责竖排成卡片。
  */
 @Composable
 private fun HabitChip(habit: Habit, isDone: Boolean) {
@@ -171,39 +171,7 @@ private fun HabitChip(habit: Habit, isDone: Boolean) {
             .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (isDone) {
-            Box(
-                modifier = GlanceModifier
-                    .size(24.dp)
-                    .background(ColorProvider(Color(0xFF98C379)))
-                    .cornerRadius(12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "✓",
-                    style = TextStyle(
-                        color = ColorProvider(Color(0xFFFFFFFF)),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-            }
-        } else {
-            Box(
-                modifier = GlanceModifier
-                    .size(24.dp)
-                    .background(ColorProvider(Color(0xFF4A4A5A)))
-                    .cornerRadius(12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = GlanceModifier
-                        .size(20.dp)
-                        .background(ColorProvider(Color(0xFF1E1E2E)))
-                        .cornerRadius(10.dp)
-                ) {}
-            }
-        }
+        HabitCheckCircle(isDone = isDone, sizeDp = 24, checkSp = 14)
         Spacer(GlanceModifier.height(4.dp))
         Text(
             text = habit.emoji,
