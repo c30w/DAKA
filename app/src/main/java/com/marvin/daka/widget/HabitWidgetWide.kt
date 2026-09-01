@@ -136,9 +136,10 @@ class HabitWidgetWide : GlanceAppWidget() {
                         horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // 不加 Spacer：每张卡片自带 padding(4.dp)，相邻卡片的 padding 拼出间距，
+                        // 这样右侧 Row 的子节点 = 5 张卡片 + 可能的 "+N" ≤ 6，不会超 Glance 的 10 上限
                         list.take(5).forEach { (habit, isDone) ->
                             HabitChip(habit = habit, isDone = isDone)
-                            Spacer(GlanceModifier.width(8.dp))
                         }
                         if (total > 5) {
                             Text(

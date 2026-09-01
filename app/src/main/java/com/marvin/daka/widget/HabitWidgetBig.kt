@@ -101,10 +101,16 @@ class HabitWidgetBig : GlanceAppWidget() {
                             .clickable(openAppAction)
                     )
                 } else {
+                    // 每行自带上下 padding 当间距，不另加 Spacer——避免 list Column 子节点超 10 个
                     Column(modifier = GlanceModifier.fillMaxWidth()) {
                         list.take(6).forEach { (habit, isDone) ->
-                            HabitCheckRow(habit = habit, isDone = isDone, sizeDp = 28, nameMax = 12)
-                            Spacer(GlanceModifier.height(6.dp))
+                            HabitCheckRow(
+                                habit = habit,
+                                isDone = isDone,
+                                sizeDp = 26,
+                                nameMax = 12,
+                                vPadding = 5
+                            )
                         }
                         if (total > 6) {
                             Text(

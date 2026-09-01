@@ -190,9 +190,18 @@ internal fun HabitCheckCircle(isDone: Boolean, sizeDp: Int, checkSp: Int) {
  * 共享：一个习惯的「清单行」——左侧复选框圆 + 右侧 emoji+名称，整行可点切换。
  * 复选框圆用 [HabitCheckCircle]，这里只负责横排布局。
  * [sizeDp] 控制复选框直径（2×2 用 26，4×3 用 28），[nameMax] 限制名称字数避免换行。
+ * [vPadding] 行间距直接做进这一行的上下 padding，**不要再额外加 Spacer**——
+ * Glance 的 Row/Column 最多 10 个直接子节点，多一行+一个 Spacer 就会超 10 直接抛异常
+ * （表现为小组件渲染失败、点了没反应）。
  */
 @Composable
-internal fun HabitCheckRow(habit: Habit, isDone: Boolean, sizeDp: Int = 26, nameMax: Int = 10) {
+internal fun HabitCheckRow(
+    habit: Habit,
+    isDone: Boolean,
+    sizeDp: Int = 26,
+    nameMax: Int = 10,
+    vPadding: Int = 3
+) {
     val toggle = actionRunCallback<ToggleHabitAction>(
         actionParametersOf(HabitIdKey to habit.id.toString())
     )
@@ -200,7 +209,7 @@ internal fun HabitCheckRow(habit: Habit, isDone: Boolean, sizeDp: Int = 26, name
         modifier = GlanceModifier
             .fillMaxWidth()
             .clickable(toggle)
-            .padding(vertical = 3.dp),
+            .padding(vertical = vPadding.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         HabitCheckCircle(isDone = isDone, sizeDp = sizeDp, checkSp = (sizeDp * 0.58).toInt())
