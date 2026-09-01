@@ -58,11 +58,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -82,7 +85,10 @@ import com.marvin.daka.model.HabitUi
 import com.marvin.daka.ui.theme.DAKATheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -1130,24 +1136,35 @@ private fun SwipeableHabitCard(
     val dismissState = rememberSwipeToDismissBoxState()
     // 独立 scope 跑归位：snapTo 放在这里，避免被 LaunchedEffect 的 key 变化取消
     val dismissScope = rememberCoroutineScope()
+    // 停顿确认期间的高亮状态：卡片已滑到确认位、正等 400ms 倒计时
+    val haptic = LocalHapticFeedback.current
+    var armed by remember { mutableStateOf(false) }
 
     androidx.compose.runtime.LaunchedEffect(dismissState.currentValue) {
-        when (dismissState.currentValue) {
-            SwipeToDismissBoxValue.EndToStart -> {
-                // 左滑编辑。先用独立 scope 把卡片归位到 Settled（防返回后残留），
-                // 再同步触发编辑。归位不阻塞导航，动作一定能执行（V4.6 修残留）。
-                dismissScope.launch {
-                    dismissState.snapTo(SwipeToDismissBoxValue.Settled)
-                }
-                onSwipeEdit()
-            }
+        when (val value = dismissState.currentValue) {
+            SwipeToDismissBoxValue.EndToStart,
             SwipeToDismissBoxValue.StartToEnd -> {
-                dismissScope.launch {
-                    dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+                // 滑到确认位：先震一下给明确的「到位」反馈，不再等动作自己才响应
+                haptic?.performHapticFeedback(HapticFeedbackType.Confirm)
+                armed = true
+                val fire = if (value == SwipeToDismissBoxValue.EndToStart) onSwipeEdit else onSwipePin
+                // 停顿确认：400ms 内把卡片拉回中线（dismissDirection 回到 Settled）就取消；
+                // 一直按住确认位不动，超时后才真正执行动作并弹回原位。
+                // 这正是要的「滑到位停一下」——斜着快速划一下松手，用户有时间反悔拉回，
+                // 不会一划就触发编辑/置顶。
+                try {
+                    withTimeout(400) {
+                        snapshotFlow { dismissState.dismissDirection }
+                            .first { it == SwipeToDismissBoxValue.Settled }
+                    }
+                } catch (_: TimeoutCancellationException) {
+                    dismissScope.launch { dismissState.snapTo(SwipeToDismissBoxValue.Settled) }
+                    fire()
+                } finally {
+                    armed = false
                 }
-                onSwipePin()
             }
-            else -> { /* Settled：正常停着，无事可做 */ }
+            else -> { armed = false }
         }
     }
 
@@ -1180,7 +1197,9 @@ private fun SwipeableHabitCard(
                         contentAlignment = Alignment.CenterEnd
                     ) {
                         Text(
-                            text = stringResource(R.string.home_swipe_edit),
+                            text = stringResource(
+                                if (armed) R.string.home_swipe_edit_armed else R.string.home_swipe_edit
+                            ),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -1198,7 +1217,11 @@ private fun SwipeableHabitCard(
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Text(
-                            text = if (habit.pinned) stringResource(R.string.home_swipe_unpin) else stringResource(R.string.home_swipe_pin),
+                            text = if (habit.pinned) {
+                                stringResource(if (armed) R.string.home_swipe_unpin_armed else R.string.home_swipe_unpin)
+                            } else {
+                                stringResource(if (armed) R.string.home_swipe_pin_armed else R.string.home_swipe_pin)
+                            },
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface
                         )

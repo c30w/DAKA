@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -24,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,6 +34,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -95,6 +98,8 @@ fun CreateHabitScreen(
     onSave: (name: String, emoji: String, colorArgb: Long, reminder: ReminderConfig, category: String) -> Unit = { _, _, _, _, _ -> },
     onUpdate: (habitId: Long, name: String, emoji: String, colorArgb: Long, reminder: ReminderConfig, category: String) -> Unit = { _, _, _, _, _, _ -> },
     onBack: () -> Unit,
+    /** V1.3：打开模板库。编辑模式下不会用到（习惯已经存在了，没得从模板挑） */
+    onOpenTemplates: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val isEditing = editing != null
@@ -174,6 +179,25 @@ fun CreateHabitScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
+            // ---- V1.3：模板库入口 ----
+            // 放在最上面而不是埋在底部：用户点「+」进来的第一秒就该知道
+            // 「不用自己想，有现成的」。编辑模式下不显示——那时候习惯已经存在了。
+            if (!isEditing) {
+                OutlinedButton(
+                    onClick = onOpenTemplates,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.tpl_entry))
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
             // ---- 名称 ----
             OutlinedTextField(
                 value = name,

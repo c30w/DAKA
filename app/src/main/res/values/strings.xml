@@ -28,6 +28,9 @@
     <string name="home_swipe_edit">编辑</string>
     <string name="home_swipe_pin">置顶</string>
     <string name="home_swipe_unpin">取消置顶</string>
+    <string name="home_swipe_edit_armed">松手后编辑</string>
+    <string name="home_swipe_pin_armed">松手后置顶</string>
+    <string name="home_swipe_unpin_armed">松手后取消置顶</string>
     <string name="home_swipe_hint">左滑编辑 · 右滑置顶 · 长按拖动排序</string>
     <string name="home_today_label">今天</string>
     <string name="a11y_pin_on">取消置顶</string>
@@ -209,4 +212,60 @@
     <string name="onboarding_skip">跳过</string>
     <string name="onboarding_close">关闭</string>
     <string name="onboarding_page">第 %1$d / %2$d 步</string>
+
+    <!-- ===== V1.3 习惯模板库 ===== -->
+    <string name="tpl_entry">从模板导入</string>
+    <string name="tpl_title">习惯模板</string>
+    <string name="tpl_subtitle">挑几个现成的，一键加进列表</string>
+    <string name="tpl_import_count">导入 %1$d 个</string>
+    <string name="tpl_suggest_remind">建议 %1$s 提醒</string>
+    <string name="tpl_all">全选</string>
+    <string name="tpl_none">全不选</string>
+    <string name="tpl_added">已添加 %1$d 个习惯</string>
+
+    <string name="tpl_wake_early_name">早起</string>
+    <string name="tpl_wake_early_desc">固定时间起床，把生物钟调回来</string>
+    <string name="tpl_drink_water_name">喝水</string>
+    <string name="tpl_drink_water_desc">每天八杯水，最便宜的健康投资</string>
+    <string name="tpl_exercise_name">运动</string>
+    <string name="tpl_exercise_desc">哪怕只有二十分钟，动了就算数</string>
+    <string name="tpl_sleep_early_name">早睡</string>
+    <string name="tpl_sleep_early_desc">十一点前躺下，第二天状态完全不同</string>
+    <string name="tpl_meditation_name">冥想</string>
+    <string name="tpl_meditation_desc">十分钟放空，焦虑会明显变少</string>
+    <string name="tpl_stretching_name">拉伸</string>
+    <string name="tpl_stretching_desc">久坐党的救命动作，五分钟就够</string>
+    <string name="tpl_medication_name">吃药</string>
+    <string name="tpl_medication_desc">按医嘱按时吃，别靠记性</string>
+    <string name="tpl_reading_name">阅读</string>
+    <string name="tpl_reading_desc">每天读几页，一年能读完十几本</string>
+    <string name="tpl_english_name">学英语</string>
+    <string name="tpl_english_desc">每天二十个单词，积少成多</string>
+    <string name="tpl_journal_name">写日记</string>
+    <string name="tpl_journal_desc">记下今天，将来的自己会感谢</string>
+    <string name="tpl_budgeting_name">记账</string>
+    <string name="tpl_budgeting_desc">钱花在哪了，记下来才知道</string>
+    <string name="tpl_skincare_name">护肤</string>
+    <string name="tpl_skincare_desc">早晚两步，坚持才看得出差别</string>
+
+    <!-- ===== V1.3 统计 ===== -->
+    <string name="stats_title">统计</string>
+    <string name="stats_range_week">周</string>
+    <string name="stats_range_month">月</string>
+    <string name="stats_range_year">年</string>
+    <string name="stats_overall_rate">整体完成率</string>
+    <string name="stats_perfect_days">全勤天数</string>
+    <string name="stats_avg_done">日均完成</string>
+    <string name="stats_week_title">近 7 天</string>
+    <string name="stats_month_title">近 30 天完成率</string>
+    <string name="stats_year_title">近一年</string>
+    <string name="stats_chart_hint">柱子/折线高度 = 当天完成率</string>
+    <string name="stats_today_label">今天</string>
+    <string name="stats_legend_low">没做</string>
+    <string name="stats_legend_high">全勤</string>
+    <string name="stats_rank_title">习惯完成率</string>
+    <string name="stats_rank_days">%1$d / %2$d 天</string>
+    <string name="stats_no_data">这个范围还没有数据</string>
+    <string name="nav_stats">统计</string>
+    <string name="nav_home">打卡</string>
 </resources>

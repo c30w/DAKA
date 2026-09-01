@@ -24,6 +24,9 @@
     <string name="home_swipe_edit">Edit</string>
     <string name="home_swipe_pin">Pin</string>
     <string name="home_swipe_unpin">Unpin</string>
+    <string name="home_swipe_edit_armed">Edit on release</string>
+    <string name="home_swipe_pin_armed">Pin on release</string>
+    <string name="home_swipe_unpin_armed">Unpin on release</string>
     <string name="home_swipe_hint">Swipe left to edit · swipe right to pin · long-press to reorder</string>
     <string name="home_today_label">Today</string>
     <string name="a11y_pin_on">Unpin</string>
@@ -199,4 +202,60 @@
     <string name="onboarding_skip">Skip</string>
     <string name="onboarding_close">Close</string>
     <string name="onboarding_page">Step %1$d of %2$d</string>
+
+    <!-- ===== V1.3 Habit templates ===== -->
+    <string name="tpl_entry">Import from templates</string>
+    <string name="tpl_title">Habit templates</string>
+    <string name="tpl_subtitle">Pick a few ready-made ones and add them in one tap</string>
+    <string name="tpl_import_count">Import %1$d</string>
+    <string name="tpl_suggest_remind">Suggested reminder: %1$s</string>
+    <string name="tpl_all">Select all</string>
+    <string name="tpl_none">Clear</string>
+    <string name="tpl_added">Added %1$d habits</string>
+
+    <string name="tpl_wake_early_name">Wake up early</string>
+    <string name="tpl_wake_early_desc">Get up at a fixed hour and reset your body clock</string>
+    <string name="tpl_drink_water_name">Drink water</string>
+    <string name="tpl_drink_water_desc">Eight glasses a day — the cheapest health there is</string>
+    <string name="tpl_exercise_name">Exercise</string>
+    <string name="tpl_exercise_desc">Even twenty minutes counts — just move</string>
+    <string name="tpl_sleep_early_name">Sleep early</string>
+    <string name="tpl_sleep_early_desc">Lights out before eleven and tomorrow feels different</string>
+    <string name="tpl_meditation_name">Meditate</string>
+    <string name="tpl_meditation_desc">Ten minutes of quiet noticeably lowers the anxiety</string>
+    <string name="tpl_stretching_name">Stretch</string>
+    <string name="tpl_stretching_desc">Lifesaver for desk-bound backs — five minutes is enough</string>
+    <string name="tpl_medication_name">Take medicine</string>
+    <string name="tpl_medication_desc">On schedule, as prescribed — don\'t trust memory</string>
+    <string name="tpl_reading_name">Read</string>
+    <string name="tpl_reading_desc">A few pages a day adds up to a dozen books a year</string>
+    <string name="tpl_english_name">Study English</string>
+    <string name="tpl_english_desc">Twenty words a day, small drops fill the bucket</string>
+    <string name="tpl_journal_name">Journal</string>
+    <string name="tpl_journal_desc">Write today down — your future self will thank you</string>
+    <string name="tpl_budgeting_name">Track spending</string>
+    <string name="tpl_budgeting_desc">You won\'t know where the money went until you write it down</string>
+    <string name="tpl_skincare_name">Skincare</string>
+    <string name="tpl_skincare_desc">Morning and night, two steps — consistency shows</string>
+
+    <!-- ===== V1.3 Stats ===== -->
+    <string name="stats_title">Stats</string>
+    <string name="stats_range_week">Week</string>
+    <string name="stats_range_month">Month</string>
+    <string name="stats_range_year">Year</string>
+    <string name="stats_overall_rate">Overall</string>
+    <string name="stats_perfect_days">Perfect days</string>
+    <string name="stats_avg_done">Daily avg</string>
+    <string name="stats_week_title">Last 7 days</string>
+    <string name="stats_month_title">Completion rate, last 30 days</string>
+    <string name="stats_year_title">Last year</string>
+    <string name="stats_chart_hint">Bar / line height = that day\'s completion rate</string>
+    <string name="stats_today_label">Today</string>
+    <string name="stats_legend_low">None</string>
+    <string name="stats_legend_high">All done</string>
+    <string name="stats_rank_title">Completion by habit</string>
+    <string name="stats_rank_days">%1$d / %2$d days</string>
+    <string name="stats_no_data">No data in this range yet</string>
+    <string name="nav_stats">Stats</string>
+    <string name="nav_home">Habits</string>
 </resources>

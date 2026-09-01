@@ -21,6 +21,11 @@ import com.marvin.daka.model.ReminderConfig
 import com.marvin.daka.model.ReminderOccurrence
 import com.marvin.daka.reminder.ReminderRule
 import com.marvin.daka.reminder.ReminderScheduler
+import com.marvin.daka.ui.stats.DailyStat
+import com.marvin.daka.ui.stats.HabitStat
+import com.marvin.daka.ui.stats.StatsRange
+import com.marvin.daka.ui.stats.buildDailyStats
+import com.marvin.daka.ui.stats.buildHabitStats
 import com.marvin.daka.util.calcStreak
 import com.marvin.daka.util.last7Days
 import com.marvin.daka.util.todayString
@@ -328,6 +333,100 @@ class HabitViewModel(
         }
     }
 
+    // ------------------------------------------------------------------
+    // V1.3：统计（周 / 月 / 年）
+    // ------------------------------------------------------------------
+
+    /**
+     * 当前统计范围。放在 ViewModel 而不是统计页的 Composable 里，
+     * 是为了让用户从统计页返回再进来时还停在同一个范围——
+     * Composable 里的 remember 会随页面重建丢掉。
+     */
+    private val _statsRange = MutableStateFlow(StatsRange.WEEK)
+    val statsRange: StateFlow<StatsRange> = _statsRange.asStateFlow()
+
+    fun setStatsRange(range: StatsRange) {
+        _statsRange.value = range
+    }
+
+    /**
+     * 每天的完成情况，按日期升序（最旧的在前、今天在最后）。
+     *
+     * 两个数据源（habits + records）都要：某天的「完成率」分母是
+     * **那天存在多少个习惯**，没有 habits 就算不出来。
+     */
+    val dailyStats: StateFlow<List<DailyStat>> =
+        combine(habitDao.observeAll(), recordDao.observeAll(), _statsRange) { habits, records, range ->
+            buildDailyStats(habits, records, range)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
+
+    /** 每个习惯的完成率排行，完成率高的在前 */
+    val habitStats: StateFlow<List<HabitStat>> =
+        combine(habitDao.observeAll(), recordDao.observeAll(), _statsRange) { habits, records, range ->
+            buildHabitStats(habits, records, range)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
+
+    /**
+     * V1.3：批量新建习惯（模板导入用）。
+     *
+     * 为什么不循环调 [createHabit]？因为每个 createHabit 都开一个独立协程，
+     * 并发执行时「取当前最大 sortOrder +1」这一步会撞车——多个协程读到同一个
+     * 最大值，算出相同的 sortOrder，导入后顺序全乱（表现为同一个分类里
+     * 几个模板习惯的相对顺序随机）。
+     *
+     * 这里在**同一个协程内**串行插入，order 从当前最大值开始逐个 +1，
+     * 顺序严格等于传入列表的顺序。导入这种低频操作，串行那几毫秒不值一提。
+     *
+     * @param drafts 待创建的习惯草稿，按列表顺序排列
+     * @return 成功创建的条数
+     */
+    fun createHabits(drafts: List<NewHabitDraft>): Int {
+        if (drafts.isEmpty()) return 0
+        viewModelScope.launch(Dispatchers.IO) {
+            var nextOrder = (habitDao.getMaxSortOrder() ?: 0) + 1
+            drafts.forEach { draft ->
+                val cleanName = draft.name.trim()
+                if (cleanName.isEmpty()) return@forEach
+
+                val ids = habitDao.insertAll(
+                    listOf(
+                        Habit(
+                            name = cleanName,
+                            emoji = draft.emoji,
+                            colorArgb = draft.colorArgb,
+                            reminderEnabled = draft.reminder.enabled,
+                            reminderHour = draft.reminder.hour,
+                            reminderMinute = draft.reminder.minute,
+                            repeatType = draft.reminder.repeatType.code,
+                            repeatInterval = draft.reminder.interval.coerceAtLeast(1),
+                            repeatWeekdays = draft.reminder.weekdays.sorted().joinToString(","),
+                            repeatMonthDays = draft.reminder.monthDays.sorted().joinToString(","),
+                            endType = draft.reminder.endType.code,
+                            repeatTimes = draft.reminder.times,
+                            remindEndDate = draft.reminder.endDate,
+                            remindStartDate = draft.reminder.startDate.ifBlank { todayString() },
+                            category = draft.category,
+                            sortOrder = nextOrder
+                        )
+                    )
+                )
+                nextOrder++
+                val newId = ids.firstOrNull() ?: return@forEach
+                habitDao.getById(newId)?.let { applyReminder(it) }
+            }
+            refreshHabitWidgets(appContext)
+        }
+        return drafts.size
+    }
+
     /**
      * V4：整体编辑一个习惯（名称/图标/颜色/分类/提醒）。
      *
@@ -603,6 +702,21 @@ class HabitViewModel(
  */
 private val PRETTY_JSON = Json { prettyPrint = true }
 private val LENIENT_JSON = Json { ignoreUnknownKeys = true }
+
+/**
+ * 新建习惯的「一份草稿」——批量导入时界面交给 ViewModel 的最小信息。
+ *
+ * 单独建这个类而不是直接传 [Habit]，是因为 id / createdAt / sortOrder 这些
+ * 「数据库该操心的事」不该由调用方填。调用方只说清楚「叫什么、什么图标、
+ * 什么颜色、归哪类、提醒怎么设」，剩下的交给 [HabitViewModel.createHabits]。
+ */
+data class NewHabitDraft(
+    val name: String,
+    val emoji: String,
+    val colorArgb: Long,
+    val category: String = HabitCategory.DEFAULT,
+    val reminder: ReminderConfig = ReminderConfig.disabled()
+)
 
 /**
  * 首页的一个分类分组：分类标题 + 该分类下排好序的习惯。
