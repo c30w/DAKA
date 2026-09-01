@@ -2,7 +2,6 @@ package com.marvin.daka.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -30,6 +29,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.marvin.daka.ui.theme.WidgetColors
 import com.marvin.daka.MainActivity
 import com.marvin.daka.model.Habit
 import kotlinx.coroutines.runBlocking
@@ -59,7 +59,7 @@ class HabitWidgetWide : GlanceAppWidget() {
                 modifier = GlanceModifier
                     .fillMaxSize()
                     .padding(14.dp)
-                    .background(ColorProvider(Color(0xFF1E1E2E)))
+                    .background(ColorProvider(WidgetColors.Background))
                     .cornerRadius(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -73,7 +73,7 @@ class HabitWidgetWide : GlanceAppWidget() {
                     Text(
                         text = "今日",
                         style = TextStyle(
-                            color = ColorProvider(Color(0xFFABB2BF)),
+                            color = ColorProvider(WidgetColors.TextDim),
                             fontSize = 13.sp
                         )
                     )
@@ -81,7 +81,7 @@ class HabitWidgetWide : GlanceAppWidget() {
                         Text(
                             text = "$done",
                             style = TextStyle(
-                                color = ColorProvider(Color(0xFFFFB74D)),
+                                color = ColorProvider(WidgetColors.AccentWarm),
                                 fontSize = 32.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -89,7 +89,7 @@ class HabitWidgetWide : GlanceAppWidget() {
                         Text(
                             text = "/$total",
                             style = TextStyle(
-                                color = ColorProvider(Color(0xFFABB2BF)),
+                                color = ColorProvider(WidgetColors.TextDim),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -100,7 +100,7 @@ class HabitWidgetWide : GlanceAppWidget() {
                         modifier = GlanceModifier
                             .width(84.dp)
                             .height(6.dp)
-                            .background(ColorProvider(Color(0xFF3A3A4A)))
+                            .background(ColorProvider(WidgetColors.Surface))
                             .cornerRadius(3.dp)
                     ) {
                         if (ratio > 0f) {
@@ -109,7 +109,7 @@ class HabitWidgetWide : GlanceAppWidget() {
                                     .width((84f * ratio.coerceAtMost(1f)).dp)
                                     .height(6.dp)
                                     .background(
-                                        ColorProvider(if (done >= total) Color(0xFF98C379) else Color(0xFFFFB74D))
+                                        ColorProvider(if (done >= total) WidgetColors.Accent else WidgetColors.AccentWarm)
                                     )
                                     .cornerRadius(3.dp),
                                 content = {}
@@ -125,7 +125,7 @@ class HabitWidgetWide : GlanceAppWidget() {
                     Text(
                         text = "还没有习惯",
                         style = TextStyle(
-                            color = ColorProvider(Color(0xFFABB2BF)),
+                            color = ColorProvider(WidgetColors.TextDim),
                             fontSize = 14.sp
                         ),
                         modifier = GlanceModifier.fillMaxWidth()
@@ -145,7 +145,7 @@ class HabitWidgetWide : GlanceAppWidget() {
                             Text(
                                 text = "+${total - 5}",
                                 style = TextStyle(
-                                    color = ColorProvider(Color(0xFFABB2BF)),
+                                    color = ColorProvider(WidgetColors.TextDim),
                                     fontSize = 13.sp
                                 )
                             )
@@ -178,14 +178,14 @@ private fun HabitChip(habit: Habit, isDone: Boolean) {
             text = habit.emoji,
             style = TextStyle(
                 fontSize = 14.sp,
-                color = ColorProvider(Color(0xFFE6E6EE))
+                color = ColorProvider(WidgetColors.Text)
             )
         )
         Text(
             text = habit.name.take(3),
             style = TextStyle(
                 fontSize = 10.sp,
-                color = ColorProvider(if (isDone) Color(0xFF6B6B78) else Color(0xFFC8C8D4))
+                color = ColorProvider(if (isDone) WidgetColors.TextMuted else WidgetColors.TextDim)
             )
         )
     }

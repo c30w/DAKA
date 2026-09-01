@@ -145,6 +145,17 @@ fun HabitCard(
                 Spacer(modifier = Modifier.height(6.dp))
                 // M6：最近 7 天小格子，用习惯自己的主题色填充
                 WeekStrip(last7 = habit.last7, colorArgb = habit.colorArgb)
+
+                Spacer(modifier = Modifier.height(6.dp))
+                // V1.2：每张卡自带一行「侧滑能干什么」。
+                // 底部那条全局提示容易滚出视野，而滑动手势看不见就永远学不会——
+                // 提示跟着卡片走，抬手就能看到。做得很淡（50% 透明度 + 11sp），
+                // 不抢打卡状态和 7 天格子的视觉焦点。
+                Text(
+                    text = stringResource(R.string.card_swipe_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
             }
 
             Spacer(modifier = Modifier.width(12.dp))

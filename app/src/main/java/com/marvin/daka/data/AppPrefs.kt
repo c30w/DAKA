@@ -40,9 +40,14 @@ class AppPrefs(private val context: Context) {
          */
         val CATEGORY_ORDER = stringPreferencesKey("category_order")
         /** UI 音效开关，默认开。关掉后所有交互音效静音 */
-        val SOUND_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("sound_enabled")
+        val SOUND_ENABLED = booleanPreferencesKey("sound_enabled")
         /** 新手引导：是否已经看完整套引导（看完就不再自动弹出） */
-        val ONBOARDING_DONE = androidx.datastore.preferences.core.booleanPreferencesKey("onboarding_done")
+        val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
+        /**
+         * 主题模式：device（跟随系统）/ light（浅色）/ dark（深色）。
+         * 取值常量见 ui.theme.ThemeMode，这里只存字符串，data 层不认识界面概念。
+         */
+        val THEME_MODE = stringPreferencesKey("theme_mode")
     }
 
     /** 用户自定义的分类顺序。空列表 = 没自定义过，按内置顺序展示 */
@@ -81,6 +86,20 @@ class AppPrefs(private val context: Context) {
     suspend fun setOnboardingDone(done: Boolean) {
         context.appDataStore.edit {
             it[Keys.ONBOARDING_DONE] = done
+        }
+    }
+
+    /**
+     * 主题模式。没设置过 = "device"（跟随系统）。
+     * 读取时用 ThemeMode.normalize 兜底，遇到脏数据也不会崩。
+     */
+    val themeMode: Flow<String> = context.appDataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { prefs -> prefs[Keys.THEME_MODE] ?: "device" }
+
+    suspend fun setThemeMode(mode: String) {
+        context.appDataStore.edit {
+            it[Keys.THEME_MODE] = mode
         }
     }
 }

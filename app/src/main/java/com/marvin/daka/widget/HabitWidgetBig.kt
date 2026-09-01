@@ -1,7 +1,6 @@
 package com.marvin.daka.widget
 
 import android.content.Context
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -28,6 +27,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.marvin.daka.ui.theme.WidgetColors
 import com.marvin.daka.MainActivity
 import kotlinx.coroutines.runBlocking
 
@@ -58,7 +58,7 @@ class HabitWidgetBig : GlanceAppWidget() {
                 modifier = GlanceModifier
                     .fillMaxSize()
                     .padding(16.dp)
-                    .background(ColorProvider(Color(0xFF1E1E2E)))
+                    .background(ColorProvider(WidgetColors.Background))
                     .cornerRadius(18.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -74,7 +74,7 @@ class HabitWidgetBig : GlanceAppWidget() {
                     Text(
                         text = "今日打卡",
                         style = TextStyle(
-                            color = ColorProvider(Color(0xFFABB2BF)),
+                            color = ColorProvider(WidgetColors.TextDim),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -83,7 +83,7 @@ class HabitWidgetBig : GlanceAppWidget() {
                     Text(
                         text = "$done/$total",
                         style = TextStyle(
-                            color = ColorProvider(Color(0xFFFFB74D)),
+                            color = ColorProvider(WidgetColors.AccentWarm),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -95,7 +95,7 @@ class HabitWidgetBig : GlanceAppWidget() {
                     Text(
                         text = "还没有习惯，点这里添加",
                         style = TextStyle(
-                            color = ColorProvider(Color(0xFF98C379)),
+                            color = ColorProvider(WidgetColors.Accent),
                             fontSize = 14.sp
                         ),
                         modifier = GlanceModifier

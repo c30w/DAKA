@@ -50,6 +50,8 @@
     <string name="card_done">已完成</string>
     <string name="card_not_done">未完成</string>
     <string name="card_pinned">已置顶</string>
+    <!-- 每张习惯卡上的侧滑操作提示。◀ ▶ 直接指示滑动方向，比纯文字更快懂 -->
+    <string name="card_swipe_hint">◀ 左滑编辑 · 右滑置顶 ▶</string>
     <string name="cd_settings">设置</string>
     <string name="cd_calendar">提醒日历</string>
 
@@ -96,6 +98,10 @@
     <string name="settings_language_system">跟随系统</string>
     <string name="settings_language_zh">中文</string>
     <string name="settings_language_en">English</string>
+    <string name="settings_theme">主题</string>
+    <string name="settings_theme_device">跟随系统</string>
+    <string name="settings_theme_light">浅色</string>
+    <string name="settings_theme_dark">深色</string>
     <string name="snack_alarm_perm">需要「闹钟和提醒」权限才能准时提醒</string>
     <string name="snack_notif_perm">没给通知权限，提醒不会响</string>
     <string name="snack_exported">备份已导出</string>

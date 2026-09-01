@@ -46,6 +46,8 @@
     <string name="card_done">Done</string>
     <string name="card_not_done">Not done</string>
     <string name="card_pinned">Pinned</string>
+    <!-- Per-card swipe hint. ◀ ▶ show the direction at a glance -->
+    <string name="card_swipe_hint">◀ Swipe left: edit · right: pin ▶</string>
     <string name="cd_settings">Settings</string>
     <string name="cd_calendar">Reminder calendar</string>
 
@@ -90,6 +92,10 @@
     <string name="settings_language_system">System default</string>
     <string name="settings_language_zh">中文</string>
     <string name="settings_language_en">English</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_device">Follow device</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
     <string name="snack_alarm_perm">The \"Alarms &amp; reminders\" permission is required for on-time reminders</string>
     <string name="snack_notif_perm">No notification permission, reminders won\'t ring</string>
     <string name="snack_exported">Backup exported</string>

@@ -82,6 +82,7 @@ import com.marvin.daka.ui.home.BackupSummary
 import com.marvin.daka.ui.home.HabitViewModel
 import com.marvin.daka.ui.reminder.ReminderEditorDialog
 import com.marvin.daka.ui.theme.DAKATheme
+import com.marvin.daka.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
@@ -261,6 +262,12 @@ fun SettingsScreen(
     var showLangDialog by remember { mutableStateOf(false) }
     val currentLangCode = LanguagePrefs.getCode(context)
 
+    // V1.2 主题：跟随系统 / 浅色 / 深色。改完即时生效（Compose 换配色，不重建 Activity）
+    val themeMode by appPrefs.themeMode.collectAsStateWithLifecycle(
+        initialValue = ThemeMode.DEVICE
+    )
+    var showThemeDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -348,6 +355,14 @@ fun SettingsScreen(
                 subtitle = stringResource(R.string.settings_language_desc),
                 enabled = true,
                 onClick = { showLangDialog = true }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            // V1.2 主题：副标题直接显示当前是哪种模式，不用点进去才知道
+            SettingsItem(
+                title = stringResource(R.string.settings_theme),
+                subtitle = themeModeLabel(themeMode),
+                enabled = true,
+                onClick = { showThemeDialog = true }
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -475,54 +490,103 @@ fun SettingsScreen(
 
     // i18n：语言选择弹窗（跟随系统 / 中文 / English）。改完立刻生效。
     if (showLangDialog) {
-        val options = listOf(
-            "" to stringResource(R.string.settings_language_system),
-            "zh" to stringResource(R.string.settings_language_zh),
-            "en" to stringResource(R.string.settings_language_en)
+        SingleChoiceDialog(
+            title = stringResource(R.string.settings_language),
+            options = listOf(
+                "" to stringResource(R.string.settings_language_system),
+                "zh" to stringResource(R.string.settings_language_zh),
+                "en" to stringResource(R.string.settings_language_en)
+            ),
+            selected = currentLangCode,
+            onSelected = { code ->
+                LanguagePrefs.setCode(context, code)
+                // 语言已写入，重建 Activity 让所有界面立即用新语言重绘
+                context.findActivity()?.recreate()
+            },
+            onDismiss = { showLangDialog = false }
         )
-        AlertDialog(
-            onDismissRequest = { showLangDialog = false },
-            title = { Text(stringResource(R.string.settings_language)) },
-            text = {
-                Column {
-                    options.forEach { (code, label) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    showLangDialog = false
-                                    if (code != currentLangCode) {
-                                        LanguagePrefs.setCode(context, code)
-                                        // 语言已写入，重建 Activity 让所有界面立即用新语言重绘
-                                        context.findActivity()?.recreate()
-                                    }
-                                }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.weight(1f)
-                            )
-                            if (code == currentLangCode) {
-                                Text(
-                                    text = "✓",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
+    }
+
+    // V1.2：主题选择弹窗（跟随系统 / 浅色 / 深色）。
+    // 只写偏好，不 recreate——Compose 会带着新 colorScheme 重组，比重建更快也不闪。
+    if (showThemeDialog) {
+        SingleChoiceDialog(
+            title = stringResource(R.string.settings_theme),
+            options = listOf(
+                ThemeMode.DEVICE to stringResource(R.string.settings_theme_device),
+                ThemeMode.LIGHT to stringResource(R.string.settings_theme_light),
+                ThemeMode.DARK to stringResource(R.string.settings_theme_dark)
+            ),
+            selected = themeMode,
+            onSelected = { mode -> scope.launch { appPrefs.setThemeMode(mode) } },
+            onDismiss = { showThemeDialog = false }
+        )
+    }
+}
+
+/** 主题模式的显示名（设置项副标题用） */
+@Composable
+private fun themeModeLabel(mode: String): String = stringResource(
+    when (ThemeMode.normalize(mode)) {
+        ThemeMode.LIGHT -> R.string.settings_theme_light
+        ThemeMode.DARK -> R.string.settings_theme_dark
+        else -> R.string.settings_theme_device
+    }
+)
+
+/**
+ * 通用单选弹窗：一列选项，当前项右侧打勾。
+ *
+ * 语言和主题两个设置长得几乎一样（都是「N 选 1 + 立刻生效」），
+ * 抽成一份省得两处各写一遍、改样式时还容易漏掉一边。
+ *
+ * @param options 每个选项 = 「存进偏好的值」to「显示给用户的文案」
+ * @param onSelected 只在选中**不同**的选项时回调
+ */
+@Composable
+private fun SingleChoiceDialog(
+    title: String,
+    options: List<Pair<String, String>>,
+    selected: String,
+    onSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                options.forEach { (value, label) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onDismiss()
+                                if (value != selected) onSelected(value)
                             }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (value == selected) {
+                            Text(
+                                text = "✓",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
                         }
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { showLangDialog = false }) {
-                    Text(stringResource(R.string.common_cancel))
-                }
             }
-        )
-    }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+        }
+    )
 }
 
 /** 从任意 Context（含被 locale 包装过的）一路向上找到 Activity */

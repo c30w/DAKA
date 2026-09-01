@@ -5,8 +5,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.core.view.WindowCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.marvin.daka.audio.SoundEffectPlayer
+import com.marvin.daka.data.AppPrefs
 import com.marvin.daka.data.LanguagePrefs
 import com.marvin.daka.data.local.DatabaseProvider
 import com.marvin.daka.data.local.HabitDatabase
@@ -15,6 +22,7 @@ import com.marvin.daka.model.HabitRecord
 import com.marvin.daka.ui.home.HabitViewModelFactory
 import com.marvin.daka.ui.navigation.DakaNavGraph
 import com.marvin.daka.ui.theme.DAKATheme
+import com.marvin.daka.ui.theme.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -68,7 +76,24 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            DAKATheme {
+            // 主题偏好：device / light / dark。存 DataStore，改完即时重组，
+            // 不用 recreate Activity（Compose 换 colorScheme 就够了，比重建快且不闪屏）
+            val appPrefs = remember { AppPrefs(applicationContext) }
+            val themeMode by appPrefs.themeMode.collectAsStateWithLifecycle(
+                initialValue = ThemeMode.DEVICE
+            )
+            val darkTheme = ThemeMode.isDark(themeMode, isSystemInDarkTheme())
+
+            // 状态栏图标的深浅要手动跟一次主题。
+            // enableEdgeToEdge() 默认只按**系统**深色模式调图标颜色，
+            // 用户在 App 里选了「浅色」而系统是深色时，状态栏会出现白图标看不清。
+            DisposableEffect(darkTheme) {
+                WindowCompat.getInsetsController(window, window.decorView)
+                    .isAppearanceLightStatusBars = !darkTheme
+                onDispose { /* 退出时无需还原，系统自己会收 */ }
+            }
+
+            DAKATheme(themeMode = themeMode) {
                 DakaNavGraph(factory = factory)
             }
         }

@@ -2,7 +2,6 @@ package com.marvin.daka.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -33,6 +32,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.marvin.daka.ui.theme.WidgetColors
 import com.marvin.daka.MainActivity
 import com.marvin.daka.data.local.DatabaseProvider
 import com.marvin.daka.model.Habit
@@ -73,7 +73,7 @@ class HabitWidget : GlanceAppWidget() {
                 modifier = GlanceModifier
                     .fillMaxSize()
                     .padding(14.dp)
-                    .background(ColorProvider(Color(0xFF1E1E2E)))
+                    .background(ColorProvider(WidgetColors.Background))
                     .cornerRadius(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -89,7 +89,7 @@ class HabitWidget : GlanceAppWidget() {
                     Text(
                         text = "今日打卡",
                         style = TextStyle(
-                            color = ColorProvider(Color(0xFFABB2BF)),
+                            color = ColorProvider(WidgetColors.TextDim),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -98,7 +98,7 @@ class HabitWidget : GlanceAppWidget() {
                     Text(
                         text = "$done/$total",
                         style = TextStyle(
-                            color = ColorProvider(Color(0xFFFFB74D)),
+                            color = ColorProvider(WidgetColors.AccentWarm),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -110,7 +110,7 @@ class HabitWidget : GlanceAppWidget() {
                     Text(
                         text = "还没有习惯，点这里添加",
                         style = TextStyle(
-                            color = ColorProvider(Color(0xFF98C379)),
+                            color = ColorProvider(WidgetColors.Accent),
                             fontSize = 13.sp
                         ),
                         modifier = GlanceModifier
@@ -127,7 +127,7 @@ class HabitWidget : GlanceAppWidget() {
                             Text(
                                 text = "还有 ${total - 3} 项，点顶部打开 App",
                                 style = TextStyle(
-                                    color = ColorProvider(Color(0xFF6B6B78)),
+                                    color = ColorProvider(WidgetColors.TextMuted),
                                     fontSize = 12.sp
                                 ),
                                 modifier = GlanceModifier
@@ -155,14 +155,14 @@ internal fun HabitCheckCircle(isDone: Boolean, sizeDp: Int, checkSp: Int) {
         Box(
             modifier = GlanceModifier
                 .size(sizeDp.dp)
-                .background(ColorProvider(Color(0xFF98C379)))
+                .background(ColorProvider(WidgetColors.Accent))
                 .cornerRadius((sizeDp / 2).dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "✓",
                 style = TextStyle(
-                    color = ColorProvider(Color(0xFFFFFFFF)),
+                    color = ColorProvider(WidgetColors.OnAccent),
                     fontSize = checkSp.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -172,14 +172,14 @@ internal fun HabitCheckCircle(isDone: Boolean, sizeDp: Int, checkSp: Int) {
         Box(
             modifier = GlanceModifier
                 .size(sizeDp.dp)
-                .background(ColorProvider(Color(0xFF4A4A5A)))
+                .background(ColorProvider(WidgetColors.Surface))
                 .cornerRadius((sizeDp / 2).dp),
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = GlanceModifier
                     .size((sizeDp - 4).dp)
-                    .background(ColorProvider(Color(0xFF1E1E2E)))
+                    .background(ColorProvider(WidgetColors.Background))
                     .cornerRadius(((sizeDp - 4) / 2).dp)
             ) {}
         }
@@ -218,7 +218,7 @@ internal fun HabitCheckRow(
             text = "${habit.emoji} ${habit.name.take(nameMax)}",
             style = TextStyle(
                 fontSize = 14.sp,
-                color = ColorProvider(if (isDone) Color(0xFF6B6B78) else Color(0xFFE6E6EE))
+                color = ColorProvider(if (isDone) WidgetColors.TextMuted else WidgetColors.Text)
             )
         )
     }
