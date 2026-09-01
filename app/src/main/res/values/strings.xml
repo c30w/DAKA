@@ -50,8 +50,6 @@
     <string name="card_done">已完成</string>
     <string name="card_not_done">未完成</string>
     <string name="card_pinned">已置顶</string>
-    <!-- 每张习惯卡上的侧滑操作提示。◀ ▶ 直接指示滑动方向，比纯文字更快懂 -->
-    <string name="card_swipe_hint">◀ 左滑编辑 · 右滑置顶 ▶</string>
     <string name="cd_settings">设置</string>
     <string name="cd_calendar">提醒日历</string>
 

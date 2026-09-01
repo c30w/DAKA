@@ -46,8 +46,6 @@
     <string name="card_done">Done</string>
     <string name="card_not_done">Not done</string>
     <string name="card_pinned">Pinned</string>
-    <!-- Per-card swipe hint. ◀ ▶ show the direction at a glance -->
-    <string name="card_swipe_hint">◀ Swipe left: edit · right: pin ▶</string>
     <string name="cd_settings">Settings</string>
     <string name="cd_calendar">Reminder calendar</string>
 
