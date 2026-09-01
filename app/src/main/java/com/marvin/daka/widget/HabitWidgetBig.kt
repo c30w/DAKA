@@ -11,6 +11,8 @@ import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.cornerRadius
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
@@ -101,27 +103,16 @@ class HabitWidgetBig : GlanceAppWidget() {
                             .clickable(openAppAction)
                     )
                 } else {
-                    // 每行自带上下 padding 当间距，不另加 Spacer——避免 list Column 子节点超 10 个
-                    Column(modifier = GlanceModifier.fillMaxWidth()) {
-                        list.take(6).forEach { (habit, isDone) ->
+                    // LazyColumn 展示**全部**习惯：超出 4x3 高度会滚动，且没有 Glance 的 10 子节点上限，
+                    // 习惯再多也不会像普通 Column 那样被截断或抛异常。每行自带上下 padding 当间距。
+                    LazyColumn(modifier = GlanceModifier.fillMaxWidth()) {
+                        items(list) { (habit, isDone) ->
                             HabitCheckRow(
                                 habit = habit,
                                 isDone = isDone,
                                 sizeDp = 26,
                                 nameMax = 12,
                                 vPadding = 5
-                            )
-                        }
-                        if (total > 6) {
-                            Text(
-                                text = "还有 ${total - 6} 项，点顶部打开 App",
-                                style = TextStyle(
-                                    color = ColorProvider(Color(0xFF6B6B78)),
-                                    fontSize = 12.sp
-                                ),
-                                modifier = GlanceModifier
-                                    .fillMaxWidth()
-                                    .clickable(openAppAction)
                             )
                         }
                     }
