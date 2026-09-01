@@ -57,10 +57,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.marvin.daka.R
 import com.marvin.daka.calendar.CalendarAccount
 import com.marvin.daka.calendar.CalendarEvent
 import com.marvin.daka.calendar.CalendarRepository
@@ -133,17 +135,17 @@ fun CalendarScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("提醒日历") },
+                title = { Text(stringResource(R.string.calendar_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
                 actions = {
                     TextButton(onClick = {
                         selectedDate = LocalDate.now()
                         viewModel.goToday()
-                    }) { Text("今天") }
+                    }) { Text(stringResource(R.string.common_today)) }
                 }
             )
         }
@@ -206,7 +208,7 @@ fun CalendarScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "这一天没有提醒，也没有日程",
+                            text = stringResource(R.string.calendar_empty_day),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -216,7 +218,7 @@ fun CalendarScreen(
 
             if (dayReminders.isNotEmpty()) {
                 item {
-                    SectionLabel(text = "习惯提醒 · ${dayReminders.size}")
+                    SectionLabel(text = stringResource(R.string.calendar_habit_section, dayReminders.size))
                 }
                 items(items = dayReminders, key = { "${it.habitId}_${it.date}" }) { occurrence ->
                     ReminderRow(occurrence = occurrence)
@@ -226,7 +228,7 @@ fun CalendarScreen(
             if (dayEvents.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
-                    SectionLabel(text = "手机日程 · ${dayEvents.size}")
+                    SectionLabel(text = stringResource(R.string.calendar_phone_section, dayEvents.size))
                 }
                 items(items = dayEvents, key = { it.eventId }) { event ->
                     SystemEventRow(event = event)
@@ -265,29 +267,39 @@ private fun MonthHeader(
     onPrev: () -> Unit,
     onNext: () -> Unit
 ) {
+    val locale = LocalContext.current.resources.configuration.locales[0] ?: Locale.getDefault()
+    val monthText = if (locale.language == "zh") {
+        DateTimeFormatter.ofPattern("yyyy年M月", locale).format(anchor)
+    } else {
+        DateTimeFormatter.ofPattern("MMMM yyyy", locale).format(anchor)
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "${anchor.year} 年 ${anchor.monthValue} 月",
+            text = monthText,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)
         )
         IconButton(onClick = onPrev) {
-            Icon(Icons.Filled.ChevronLeft, contentDescription = "上个月")
+            Icon(Icons.Filled.ChevronLeft, contentDescription = stringResource(R.string.calendar_prev_month))
         }
         IconButton(onClick = onNext) {
-            Icon(Icons.Filled.ChevronRight, contentDescription = "下个月")
+            Icon(Icons.Filled.ChevronRight, contentDescription = stringResource(R.string.calendar_next_month))
         }
     }
 }
 
 @Composable
 private fun WeekdayHeader() {
+    val locale = LocalContext.current.resources.configuration.locales[0] ?: Locale.getDefault()
     Row(modifier = Modifier.fillMaxWidth()) {
-        listOf("一", "二", "三", "四", "五", "六", "日").forEach { label ->
+        // 星期标签随语言：中文「一~日」、英文 M/T/W/T/F/S/S
+        (1..7).forEach { day ->
+            val label = java.time.DayOfWeek.of(day)
+                .getDisplayName(TextStyle.NARROW, locale)
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
@@ -367,7 +379,7 @@ private fun DayCell(
         // 节日名 / 调休「班」标记。没节日没调休就不占这一行
         if (holidayName != null || isMakeupWorkday) {
             Text(
-                text = holidayName ?: "班",
+                text = holidayName ?: stringResource(R.string.calendar_makeup_short),
                 style = MaterialTheme.typography.labelSmall,
                 maxLines = 1,
                 color = when {
@@ -399,7 +411,7 @@ private fun DayCell(
                 }
             } else {
                 Text(
-                    text = "${reminders.size} 条",
+                    text = stringResource(R.string.calendar_reminder_count, reminders.size),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (isSelected) {
                         MaterialTheme.colorScheme.onPrimary
@@ -519,9 +531,9 @@ private fun SystemEventRow(event: CalendarEvent) {
                 )
                 Text(
                     text = buildString {
-                        append(event.calendarName.ifBlank { "系统日历" })
+                        append(event.calendarName.ifBlank { stringResource(R.string.calendar_sys_calendar) })
                         append(" · ")
-                        append(if (event.allDay) "全天" else formatTime(event.startMillis))
+                        append(if (event.allDay) stringResource(R.string.calendar_all_day) else formatTime(event.startMillis))
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -580,7 +592,7 @@ private fun CalendarSyncCard(
         val ok = granted[Manifest.permission.READ_CALENDAR] == true &&
             granted[Manifest.permission.WRITE_CALENDAR] == true
         if (!ok) {
-            scope.launch { snackbarHostState.showSnackbar("没有日历权限，读不到日程也无法同步") }
+            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snack_calendar_perm)) }
             return@rememberLauncherForActivityResult
         }
         scope.launch {
@@ -588,7 +600,7 @@ private fun CalendarSyncCard(
             calendars.addAll(withContext(Dispatchers.IO) { repository.listWritableCalendars() })
             onPermissionGranted()
             if (calendars.isEmpty()) {
-                snackbarHostState.showSnackbar("手机上没有可写入的日历，请先在日历 App 里添加一个账户")
+                snackbarHostState.showSnackbar(context.getString(R.string.calendar_no_writable_hint))
             }
         }
     }
@@ -609,13 +621,13 @@ private fun CalendarSyncCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "同步到手机日历",
+                text = stringResource(R.string.calendar_sync),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Medium
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "把习惯提醒写进系统日历（安卓日历 / 谷歌日历 / 厂商日历），日历 App 里也能看到和提醒；同时把日历里的日程读到这里显示。",
+                text = stringResource(R.string.calendar_sync_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -630,16 +642,20 @@ private fun CalendarSyncCard(
                             Manifest.permission.WRITE_CALENDAR
                         )
                     )
-                }) { Text("授权读取日历") }
+                }) { Text(stringResource(R.string.calendar_auth)) }
                 return@Card
             }
 
             // 同步开关
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "开启同步", style = MaterialTheme.typography.bodyLarge)
+                    Text(text = stringResource(R.string.calendar_sync_on), style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        text = if (syncEnabled) "已开启" else "关闭后会把已写入的提醒从日历里删掉",
+                        text = if (syncEnabled) {
+                            stringResource(R.string.calendar_sync_on_desc)
+                        } else {
+                            stringResource(R.string.calendar_sync_off_desc)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -657,7 +673,7 @@ private fun CalendarSyncCard(
                                 }
                                 prefs.setSyncedEventIds(emptyMap())
                                 prefs.setCalendarSync(false)
-                                snackbarHostState.showSnackbar("已停止同步，日历里的 DAKA 提醒已清除")
+                                snackbarHostState.showSnackbar(context.getString(R.string.snack_calendar_stopped))
                             } else {
                                 if (calendars.isEmpty()) {
                                     calendars.addAll(
@@ -667,7 +683,7 @@ private fun CalendarSyncCard(
                                     )
                                 }
                                 if (calendars.isEmpty()) {
-                                    snackbarHostState.showSnackbar("没有可写入的日历，请先在日历 App 里添加一个")
+                                    snackbarHostState.showSnackbar(context.getString(R.string.calendar_no_writable_hint))
                                     return@launch
                                 }
                                 prefs.setCalendarSync(true)
@@ -683,7 +699,7 @@ private fun CalendarSyncCard(
 
             // 选哪个日历
             Text(
-                text = "写到哪个日历",
+                text = stringResource(R.string.calendar_which),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -691,7 +707,7 @@ private fun CalendarSyncCard(
 
             if (calendars.isEmpty()) {
                 Text(
-                    text = "没有可写入的日历",
+                    text = stringResource(R.string.calendar_no_writable),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
                 )
@@ -716,7 +732,7 @@ private fun CalendarSyncCard(
                 onClick = {
                     val calendarId = selectedCalendarId
                     if (calendarId == null) {
-                        scope.launch { snackbarHostState.showSnackbar("先选一个日历") }
+                        scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snack_calendar_pick)) }
                         return@OutlinedButton
                     }
                     scope.launch {
@@ -737,19 +753,23 @@ private fun CalendarSyncCard(
                         }
                         snackbarHostState.showSnackbar(
                             result.fold(
-                                onSuccess = { "已同步 $it 个提醒到系统日历" },
-                                onFailure = { "同步失败：${it.message}" }
+                                onSuccess = { count ->
+                                    context.getString(R.string.snack_calendar_synced, count)
+                                },
+                                onFailure = {
+                                    context.getString(R.string.snack_calendar_sync_fail, it.message)
+                                }
                             )
                         )
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("立即同步") }
+            ) { Text(stringResource(R.string.calendar_sync_now)) }
 
             if (readable) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "已读取到系统日历日程，月历上以横杠标记",
+                    text = stringResource(R.string.calendar_readable_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -799,7 +819,7 @@ private fun CalendarChoiceRow(
             }
             if (selected) {
                 Text(
-                    text = "已选",
+                    text = stringResource(R.string.calendar_selected),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -812,19 +832,30 @@ private fun CalendarChoiceRow(
 // 小工具
 // ------------------------------------------------------------------
 
-/** "9月2日 周三"；落在法定节假日里会带上节日名，例如 "10月1日 周四 · 国庆节（放假）" */
+/** "9月2日 周三" / "Tue, Sep 2"；落在法定节假日里会带上节日名，例如 "10月1日 周四 · 国庆节（放假）" */
+@Composable
 private fun formatDateTitle(date: LocalDate): String {
-    val weekday = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.CHINA)
-    val base = if (date == LocalDate.now()) {
-        "今天 · ${date.monthValue}月${date.dayOfMonth}日 $weekday"
+    val locale = LocalContext.current.resources.configuration.locales[0] ?: Locale.getDefault()
+    val base = if (locale.language == "zh") {
+        val weekday = date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
+        if (date == LocalDate.now()) {
+            "${stringResource(R.string.home_today_label)} · ${date.monthValue}月${date.dayOfMonth}日 $weekday"
+        } else {
+            "${date.monthValue}月${date.dayOfMonth}日 $weekday"
+        }
     } else {
-        "${date.monthValue}月${date.dayOfMonth}日 $weekday"
+        val fmt = DateTimeFormatter.ofPattern("EEE, MMM d", locale)
+        if (date == LocalDate.now()) {
+            "${stringResource(R.string.home_today_label)} · ${fmt.format(date)}"
+        } else {
+            fmt.format(date)
+        }
     }
     val holiday = CnHoliday.holidayName(date)
-    if (holiday != null) return "$base · $holiday（放假）"
+    if (holiday != null) return "$base · $holiday${stringResource(R.string.calendar_holiday_suffix)}"
     // 调休补班的周末：用户最需要被提醒的日子
     if (CnHoliday.isWorkday(date) && date.dayOfWeek.value >= 6) {
-        return "$base · 调休上班"
+        return "$base · ${stringResource(R.string.calendar_makeup_work)}"
     }
     return base
 }

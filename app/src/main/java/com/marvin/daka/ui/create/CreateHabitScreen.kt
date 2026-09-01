@@ -53,9 +53,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.marvin.daka.R
 import com.marvin.daka.audio.SoundEffectPlayer
 import com.marvin.daka.model.Habit
 import com.marvin.daka.model.HabitCategory
@@ -149,7 +151,7 @@ fun CreateHabitScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(if (isEditing) "编辑习惯" else "新建习惯") },
+                title = { Text(stringResource(if (isEditing) R.string.create_title_edit else R.string.create_title_new)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -157,7 +159,7 @@ fun CreateHabitScreen(
                             // 箭头会自动翻转指向右边。普通版在 RTL 下是「指错方向」的，
                             // 官方已把旧的标记为废弃
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回"
+                            contentDescription = stringResource(R.string.common_back)
                         )
                     }
                 }
@@ -176,8 +178,8 @@ fun CreateHabitScreen(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("习惯名称") },
-                placeholder = { Text("例如：喝水 2L") },
+                label = { Text(stringResource(R.string.create_name_label)) },
+                placeholder = { Text(stringResource(R.string.create_name_placeholder)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -186,7 +188,7 @@ fun CreateHabitScreen(
 
             // ---- V4.11：分类（内置 chip + 自定义输入框） ----
             Text(
-                text = "分类",
+                text = stringResource(R.string.create_category),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -211,8 +213,8 @@ fun CreateHabitScreen(
             OutlinedTextField(
                 value = customText,
                 onValueChange = { customText = it },
-                label = { Text("自定义分类（可选）") },
-                placeholder = { Text("如：运动、读书、副业") },
+                label = { Text(stringResource(R.string.create_custom_category)) },
+                placeholder = { Text(stringResource(R.string.create_custom_category_hint)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -220,7 +222,7 @@ fun CreateHabitScreen(
             if (customText.trim().isNotBlank()) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "将新建分类「${customText.trim()}」",
+                    text = stringResource(R.string.create_new_category, customText.trim()),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -230,7 +232,7 @@ fun CreateHabitScreen(
 
             // ---- 图标（3 行 × 6 列，不滚动，最后一格「更多」） ----
             Text(
-                text = "选个图标",
+                text = stringResource(R.string.create_icon),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -248,7 +250,7 @@ fun CreateHabitScreen(
 
             // ---- 主题色（2 行 × 6 列，不滚动，最后一格「更多」） ----
             Text(
-                text = "选个颜色",
+                text = stringResource(R.string.create_color),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -287,7 +289,7 @@ fun CreateHabitScreen(
                 enabled = name.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (isEditing) "保存修改" else "保存")
+                Text(stringResource(if (isEditing) R.string.create_save_edit else R.string.create_save_new))
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -297,7 +299,7 @@ fun CreateHabitScreen(
     // ---- 更多图标对话框 ----
     if (showIconDialog) {
         PickerDialog(
-            title = "选择图标",
+            title = stringResource(R.string.picker_icons),
             onDismiss = { showIconDialog = false }
         ) {
             LazyVerticalGrid(
@@ -325,7 +327,7 @@ fun CreateHabitScreen(
     // ---- 更多颜色对话框 ----
     if (showColorDialog) {
         PickerDialog(
-            title = "选择颜色",
+            title = stringResource(R.string.picker_colors),
             onDismiss = { showColorDialog = false }
         ) {
             LazyVerticalGrid(
@@ -361,8 +363,8 @@ private fun PickerDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { content() },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("关闭") }
+            confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_close)) }
         }
     )
 }
@@ -412,7 +414,7 @@ private fun IconGrid(
                         }
                         position == totalSlots - 1 -> {
                             MoreCell(
-                                label = "更多图标",
+                                label = stringResource(R.string.create_more_icons),
                                 onClick = onMore,
                                 modifier = Modifier.weight(1f)
                             )
@@ -494,7 +496,7 @@ private fun MoreCell(
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            text = "更多",
+            text = stringResource(R.string.create_more),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -544,7 +546,7 @@ private fun ColorGrid(
                         }
                         position == totalSlots - 1 -> {
                             MoreCell(
-                                label = "更多颜色",
+                                label = stringResource(R.string.create_more_colors),
                                 onClick = onMore,
                                 modifier = Modifier.weight(1f)
                             )

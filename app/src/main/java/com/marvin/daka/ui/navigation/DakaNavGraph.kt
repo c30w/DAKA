@@ -1,8 +1,13 @@
 package com.marvin.daka.ui.navigation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -12,13 +17,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.marvin.daka.data.AppPrefs
 import com.marvin.daka.reminder.ReminderPrefs
 import com.marvin.daka.ui.calendar.CalendarScreen
 import com.marvin.daka.ui.create.CreateHabitScreen
 import com.marvin.daka.ui.home.HabitViewModel
 import com.marvin.daka.ui.home.HabitViewModelFactory
 import com.marvin.daka.ui.home.HomeScreen
+import com.marvin.daka.ui.onboarding.OnboardingOverlay
 import com.marvin.daka.ui.settings.SettingsScreen
+import kotlinx.coroutines.launch
 
 private const val ROUTE_HOME = "home"
 private const val ROUTE_CREATE = "create"
@@ -61,11 +69,21 @@ fun DakaNavGraph(
     val defaultHour by prefs.defaultHour.collectAsStateWithLifecycle(initialValue = 21)
     val defaultMinute by prefs.defaultMinute.collectAsStateWithLifecycle(initialValue = 0)
 
-    NavHost(
-        navController = navController,
-        startDestination = ROUTE_HOME,
-        modifier = modifier
-    ) {
+    // 新手引导：首次启动展示一次；「不再显示」勾选后再启动就不弹了
+    val appPrefs = remember(context) { AppPrefs(context.applicationContext) }
+    val scope = rememberCoroutineScope()
+    val onboardingDone by appPrefs.onboardingDone.collectAsStateWithLifecycle(initialValue = false)
+    var showOnboarding by remember { mutableStateOf(false) }
+    LaunchedEffect(onboardingDone) {
+        // 引导跟 onboardingDone 实时联动：完成 = 收起；未完成 = 展示
+        showOnboarding = !onboardingDone
+    }
+
+    Box(modifier = modifier) {
+        NavHost(
+            navController = navController,
+            startDestination = ROUTE_HOME
+        ) {
         composable(ROUTE_HOME) {
             HomeScreen(
                 viewModel = vm,
@@ -127,6 +145,20 @@ fun DakaNavGraph(
             CalendarScreen(
                 viewModel = vm,
                 onBack = { navController.popBackStack() }
+            )
+        }
+        }
+
+        // 新手引导盖在最上层
+        if (showOnboarding) {
+            OnboardingOverlay(
+                onDismiss = { markDone ->
+                    showOnboarding = false
+                    // 勾了「不再显示」才写偏好；没勾只关这一次
+                    if (markDone) {
+                        scope.launch { appPrefs.setOnboardingDone(true) }
+                    }
+                }
             )
         }
     }

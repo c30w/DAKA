@@ -33,8 +33,6 @@ import com.marvin.daka.model.Habit
 object NotificationHelper {
 
     private const val CHANNEL_ID = "daka_reminder"
-    private const val CHANNEL_NAME = "打卡提醒"
-
     /**
      * 每条习惯提醒用**不同的通知 id**。
      *
@@ -50,10 +48,10 @@ object NotificationHelper {
 
         val channel = NotificationChannel(
             CHANNEL_ID,
-            CHANNEL_NAME,
+            context.getString(R.string.notification_channel),
             NotificationManager.IMPORTANCE_DEFAULT // 会响铃、但不弹横幅打扰
         ).apply {
-            description = "每天提醒还没完成的习惯"
+            description = context.getString(R.string.notification_channel_desc)
         }
 
         context.getSystemService(NotificationManager::class.java)
@@ -95,8 +93,8 @@ object NotificationHelper {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_reminder)
-            .setContentTitle("${habit.emoji} 该做「${habit.name}」了")
-            .setContentText("点一下打开 DAKA 完成今天的打卡")
+            .setContentTitle(context.getString(R.string.notification_title, habit.emoji, habit.name))
+            .setContentText(context.getString(R.string.notification_body))
             .setContentIntent(contentIntent(context))
             // 点掉就没，不留在通知栏里积灰
             .setAutoCancel(true)

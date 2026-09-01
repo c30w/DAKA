@@ -41,6 +41,8 @@ class AppPrefs(private val context: Context) {
         val CATEGORY_ORDER = stringPreferencesKey("category_order")
         /** UI 音效开关，默认开。关掉后所有交互音效静音 */
         val SOUND_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("sound_enabled")
+        /** 新手引导：是否已经看完整套引导（看完就不再自动弹出） */
+        val ONBOARDING_DONE = androidx.datastore.preferences.core.booleanPreferencesKey("onboarding_done")
     }
 
     /** 用户自定义的分类顺序。空列表 = 没自定义过，按内置顺序展示 */
@@ -68,6 +70,17 @@ class AppPrefs(private val context: Context) {
     suspend fun setSoundEnabled(enabled: Boolean) {
         context.appDataStore.edit {
             it[Keys.SOUND_ENABLED] = enabled
+        }
+    }
+
+    /** 新手引导是否已完成。默认 false = 还没看完，需要展示引导 */
+    val onboardingDone: Flow<Boolean> = context.appDataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { prefs -> prefs[Keys.ONBOARDING_DONE] ?: false }
+
+    suspend fun setOnboardingDone(done: Boolean) {
+        context.appDataStore.edit {
+            it[Keys.ONBOARDING_DONE] = done
         }
     }
 }

@@ -43,9 +43,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.marvin.daka.R
 import com.marvin.daka.model.EndType
 import com.marvin.daka.model.ReminderConfig
 import com.marvin.daka.model.RepeatType
@@ -82,12 +85,16 @@ fun ReminderConfigEditor(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "提醒我去做",
+                    text = stringResource(R.string.reminder_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = if (config.enabled) "已开启" else "关闭时不会收到任何通知",
+                    text = if (config.enabled) {
+                        stringResource(R.string.reminder_on_desc)
+                    } else {
+                        stringResource(R.string.reminder_off_desc)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -104,7 +111,7 @@ fun ReminderConfigEditor(
         Spacer(modifier = Modifier.height(16.dp))
 
         // ---- 提醒时间 ----
-        SectionLabel("提醒时间")
+        SectionLabel(stringResource(R.string.reminder_time_section))
         TimePickerRow(
             hour = config.hour,
             minute = config.minute,
@@ -114,7 +121,7 @@ fun ReminderConfigEditor(
         Spacer(modifier = Modifier.height(16.dp))
 
         // ---- 重复方式 ----
-        SectionLabel("重复方式")
+        SectionLabel(stringResource(R.string.reminder_repeat_section))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -123,7 +130,7 @@ fun ReminderConfigEditor(
                 FilterChip(
                     selected = config.repeatType == type,
                     onClick = { onChange(config.copy(repeatType = type)) },
-                    label = { Text(type.label) }
+                    label = { Text(repeatTypeLabel(type)) }
                 )
             }
         }
@@ -133,18 +140,18 @@ fun ReminderConfigEditor(
         // ---- 按重复方式展开的细化设置 ----
         when (config.repeatType) {
             RepeatType.DAILY -> {
-                HintText("每天都提醒")
+                HintText(stringResource(R.string.reminder_every_day))
             }
 
             RepeatType.INTERVAL_DAYS -> {
                 NumberStepper(
-                    label = "间隔",
+                    label = stringResource(R.string.reminder_interval_label),
                     value = config.interval,
                     range = 1..365,
-                    suffix = "天",
+                    suffix = stringResource(R.string.reminder_interval_suffix),
                     onValueChange = { onChange(config.copy(interval = it)) }
                 )
-                HintText("从开始日期起，每 ${config.interval} 天提醒一次")
+                HintText(stringResource(R.string.reminder_interval_hint, config.interval))
             }
 
             RepeatType.WEEKLY -> {
@@ -159,7 +166,13 @@ fun ReminderConfigEditor(
                         onChange(config.copy(weekdays = next))
                     }
                 )
-                HintText(if (config.weekdays.isEmpty()) "还没选星期，此时等同于每天提醒" else "已选 ${config.weekdays.size} 天")
+                HintText(
+                    if (config.weekdays.isEmpty()) {
+                        stringResource(R.string.reminder_weekly_none)
+                    } else {
+                        stringResource(R.string.reminder_weekly_picked, config.weekdays.size)
+                    }
+                )
             }
 
             RepeatType.MONTHLY -> {
@@ -176,22 +189,25 @@ fun ReminderConfigEditor(
                 )
                 HintText(
                     if (config.monthDays.isEmpty()) {
-                        "还没选日期，此时等同于每天提醒"
+                        stringResource(R.string.reminder_monthly_none)
                     } else {
-                        "每月 ${config.monthDays.sorted().joinToString("、")} 号（小月没有的日期会自动跳过）"
+                        stringResource(
+                            R.string.reminder_monthly_picked,
+                            config.monthDays.sorted().joinToString(listSeparator())
+                        )
                     }
                 )
             }
 
-            RepeatType.WORKDAY -> HintText("周一至周五提醒，周末不打扰")
+            RepeatType.WORKDAY -> HintText(stringResource(R.string.reminder_workday))
 
-            RepeatType.WEEKEND_HOLIDAY -> HintText("周六、周日提醒")
+            RepeatType.WEEKEND_HOLIDAY -> HintText(stringResource(R.string.reminder_weekend))
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // ---- 结束方式 ----
-        SectionLabel("结束方式")
+        SectionLabel(stringResource(R.string.reminder_end_section))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -200,7 +216,7 @@ fun ReminderConfigEditor(
                 FilterChip(
                     selected = config.endType == type,
                     onClick = { onChange(config.copy(endType = type)) },
-                    label = { Text(type.label) }
+                    label = { Text(endTypeLabel(type)) }
                 )
             }
         }
@@ -208,22 +224,22 @@ fun ReminderConfigEditor(
         Spacer(modifier = Modifier.height(12.dp))
 
         when (config.endType) {
-            EndType.NEVER -> HintText("一直提醒下去，直到你手动关掉")
+            EndType.NEVER -> HintText(stringResource(R.string.reminder_never))
 
             EndType.AFTER_TIMES -> {
                 NumberStepper(
-                    label = "总共提醒",
+                    label = stringResource(R.string.reminder_after_times_label),
                     value = config.times,
                     range = 1..999,
-                    suffix = "次",
+                    suffix = stringResource(R.string.reminder_after_times_suffix),
                     onValueChange = { onChange(config.copy(times = it)) }
                 )
-                HintText("提醒满 ${config.times} 次后自动停止")
+                HintText(stringResource(R.string.reminder_after_times_hint, config.times))
             }
 
             EndType.ON_DATE -> {
                 DatePickerRow(
-                    label = "结束日期",
+                    label = stringResource(R.string.reminder_end_date),
                     date = config.endDate,
                     onDateChange = { onChange(config.copy(endDate = it)) }
                 )
@@ -233,15 +249,43 @@ fun ReminderConfigEditor(
         Spacer(modifier = Modifier.height(16.dp))
 
         // ---- 开始日期 ----
-        SectionLabel("开始日期")
+        SectionLabel(stringResource(R.string.reminder_start_section))
         DatePickerRow(
-            label = "从哪天开始",
+            label = stringResource(R.string.reminder_start_from),
             date = config.startDate,
             onDateChange = { onChange(config.copy(startDate = it)) }
         )
-        HintText("留空则从今天开始。「每 N 天」需要它来当计数起点")
+        HintText(stringResource(R.string.reminder_start_hint))
     }
 }
+
+/** 列表分隔符：中文用「、」，其它语言用英文逗号 */
+@Composable
+private fun listSeparator(): String =
+    if (LocalContext.current.resources.configuration.locales[0]?.language == "zh") "、" else ", "
+
+/** 重复方式枚举 → 本地化标签 */
+@Composable
+private fun repeatTypeLabel(type: RepeatType): String = stringResource(
+    when (type) {
+        RepeatType.DAILY -> R.string.repeat_daily
+        RepeatType.INTERVAL_DAYS -> R.string.repeat_interval
+        RepeatType.WEEKLY -> R.string.repeat_weekly
+        RepeatType.MONTHLY -> R.string.repeat_monthly
+        RepeatType.WORKDAY -> R.string.repeat_workday
+        RepeatType.WEEKEND_HOLIDAY -> R.string.repeat_weekend
+    }
+)
+
+/** 结束方式枚举 → 本地化标签 */
+@Composable
+private fun endTypeLabel(type: EndType): String = stringResource(
+    when (type) {
+        EndType.NEVER -> R.string.end_never
+        EndType.AFTER_TIMES -> R.string.end_after_times
+        EndType.ON_DATE -> R.string.end_on_date
+    }
+)
 
 // ------------------------------------------------------------------
 // 编辑器内部的各种输入控件
@@ -295,7 +339,7 @@ private fun TimePickerRow(
         )
         TimePickerDialog(
             // 新版 M3 把 title 提到了第一个**必需**参数位置，不传编译不过
-            title = { Text("选择提醒时间") },
+            title = { Text(stringResource(R.string.reminder_pick_time)) },
             onDismissRequest = { showPicker = false },
             confirmButton = {
                 TextButton(
@@ -303,10 +347,10 @@ private fun TimePickerRow(
                         showPicker = false
                         onTimeChange(state.hour, state.minute)
                     }
-                ) { Text("确定") }
+                ) { Text(stringResource(R.string.common_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { showPicker = false }) { Text("取消") }
+                TextButton(onClick = { showPicker = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         ) {
             TimePicker(state = state)
@@ -330,12 +374,14 @@ private fun DatePickerRow(
     ) {
         OutlinedButton(onClick = { showPicker = true }, modifier = Modifier.weight(1f)) {
             Text(
-                text = date.ifBlank { "$label：不限" }
+                text = date.ifBlank {
+                    label + listSeparator() + stringResource(R.string.reminder_date_any)
+                }
             )
         }
         if (date.isNotBlank()) {
             Spacer(modifier = Modifier.width(8.dp))
-            TextButton(onClick = { onDateChange("") }) { Text("清除") }
+            TextButton(onClick = { onDateChange("") }) { Text(stringResource(R.string.reminder_clear)) }
         }
     }
 
@@ -370,10 +416,10 @@ private fun DatePickerRow(
                             )
                         }
                     }
-                ) { Text("确定") }
+                ) { Text(stringResource(R.string.common_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { showPicker = false }) { Text("取消") }
+                TextButton(onClick = { showPicker = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         ) {
             DatePicker(state = state)
@@ -399,7 +445,7 @@ private fun NumberStepper(
             onClick = { onValueChange((value - 1).coerceIn(range)) },
             enabled = value > range.first
         ) {
-            Icon(Icons.Filled.Remove, contentDescription = "减少")
+            Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.reminder_decrease))
         }
 
         Text(
@@ -413,18 +459,20 @@ private fun NumberStepper(
             onClick = { onValueChange((value + 1).coerceIn(range)) },
             enabled = value < range.last
         ) {
-            Icon(Icons.Filled.Add, contentDescription = "增加")
+            Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.reminder_increase))
         }
     }
 }
 
-/** 星期多选。1=周一 … 7=周日 */
 @Composable
 private fun WeekdaySelector(
     selected: Set<Int>,
     onToggle: (Int) -> Unit
 ) {
-    val labels = listOf("一", "二", "三", "四", "五", "六", "日")
+    val locale = LocalContext.current.resources.configuration.locales[0] ?: java.util.Locale.getDefault()
+    val labels = (1..7).map { day ->
+        java.time.DayOfWeek.of(day).getDisplayName(java.time.format.TextStyle.NARROW, locale)
+    }
 
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         labels.forEachIndexed { index, label ->
@@ -507,7 +555,7 @@ fun ReminderEditorDialog(
             Column {
                 // 标题（固定不滚）
                 Text(
-                    text = "「$habitName」的提醒",
+                    text = stringResource(R.string.reminder_dialog_title, habitName),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(start = 24.dp, top = 24.dp, end = 24.dp)
@@ -535,9 +583,9 @@ fun ReminderEditorDialog(
                         .padding(horizontal = 24.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Button(onClick = { onConfirm(draft) }) { Text("保存") }
+                    Button(onClick = { onConfirm(draft) }) { Text(stringResource(R.string.common_save)) }
                 }
             }
         }

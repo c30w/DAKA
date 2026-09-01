@@ -32,10 +32,12 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.marvin.daka.R
 import com.marvin.daka.model.HabitUi
 import com.marvin.daka.ui.theme.DAKATheme
 
@@ -69,6 +71,11 @@ fun HabitCard(
     a11yActions: List<Pair<String, () -> Unit>> = emptyList(),
     modifier: Modifier = Modifier
 ) {
+    // 读屏状态描述（semantics 块不是 Composable 上下文，先在这里拼好）
+    val stateDesc = buildString {
+        append(if (habit.doneToday) stringResource(R.string.card_done) else stringResource(R.string.card_not_done))
+        if (habit.pinned) append(stringResource(R.string.card_pinned))
+    }
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -82,10 +89,7 @@ fun HabitCard(
             // 告诉读屏这是个复选框，并读出状态；否则视障用户只听到名字，不知道勾没勾
             .semantics(mergeDescendants = true) {
                 role = Role.Checkbox
-                stateDescription = buildString {
-                    append(if (habit.doneToday) "已完成" else "未完成")
-                    if (habit.pinned) append("，已置顶")
-                }
+                stateDescription = stateDesc
                 // 读屏行为菜单：拖拽和滑动手势对视障用户不可用，动作全走这里
                 customActions = a11yActions.map { (label, action) ->
                     CustomAccessibilityAction(label) { action(); true }
@@ -134,7 +138,7 @@ fun HabitCard(
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = if (habit.streak > 0) "连续 ${habit.streak} 天" else "还没开始",
+                    text = if (habit.streak > 0) stringResource(R.string.card_streak, habit.streak) else stringResource(R.string.card_no_streak),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

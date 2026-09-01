@@ -1,11 +1,13 @@
 package com.marvin.daka
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
 import com.marvin.daka.audio.SoundEffectPlayer
+import com.marvin.daka.data.LanguagePrefs
 import com.marvin.daka.data.local.DatabaseProvider
 import com.marvin.daka.data.local.HabitDatabase
 import com.marvin.daka.model.Habit
@@ -28,6 +30,14 @@ import java.time.LocalDate
  * 业务逻辑全在 ViewModel 里，界面全在 Composable 里，这里只做「接线」。
  */
 class MainActivity : ComponentActivity() {
+    /**
+     * 在 Activity 这一层也套上用户选的语言，保证 Compose 取到的资源是本地化的。
+     * Application 层已经套过一次，这里再套一次是标准做法，互不冲突。
+     */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(LanguagePrefs.applyLocale(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // 让内容延伸到状态栏和导航栏后面，配合 TopAppBar 做沉浸式

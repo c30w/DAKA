@@ -66,7 +66,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -75,12 +77,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marvin.daka.audio.SoundEffectPlayer
+import com.marvin.daka.R
 import com.marvin.daka.model.HabitUi
 import com.marvin.daka.ui.theme.DAKATheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.abs
@@ -179,7 +183,7 @@ fun HomeScreen(
                     IconButton(onClick = onOpenSettings) {
                         Icon(
                             imageVector = Icons.Filled.Settings,
-                            contentDescription = "设置"
+                            contentDescription = stringResource(R.string.cd_settings)
                         )
                     }
                 },
@@ -188,7 +192,7 @@ fun HomeScreen(
                     IconButton(onClick = onOpenCalendar) {
                         Icon(
                             imageVector = Icons.Filled.CalendarMonth,
-                            contentDescription = "提醒日历"
+                            contentDescription = stringResource(R.string.cd_calendar)
                         )
                     }
                 }
@@ -311,7 +315,7 @@ private fun HabitActionSheet(
 
         SheetAction(
             icon = { Icon(Icons.Filled.Edit, contentDescription = null) },
-            label = "编辑习惯",
+            label = stringResource(R.string.sheet_edit),
             onClick = onEdit
         )
         SheetAction(
@@ -322,17 +326,17 @@ private fun HabitActionSheet(
                     contentDescription = null
                 )
             },
-            label = if (habit.pinned) "取消置顶" else "置顶",
+            label = if (habit.pinned) stringResource(R.string.sheet_unpin) else stringResource(R.string.sheet_pin),
             onClick = onTogglePin
         )
         SheetAction(
             icon = { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) },
-            label = "上移一位",
+            label = stringResource(R.string.sheet_move_up),
             onClick = onMoveUp
         )
         SheetAction(
             icon = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null) },
-            label = "下移一位",
+            label = stringResource(R.string.sheet_move_down),
             onClick = onMoveDown
         )
         SheetAction(
@@ -343,7 +347,7 @@ private fun HabitActionSheet(
                     tint = MaterialTheme.colorScheme.error
                 )
             },
-            label = "删除习惯",
+            label = stringResource(R.string.sheet_delete),
             labelColor = MaterialTheme.colorScheme.error,
             onClick = onDelete
         )
@@ -382,15 +386,15 @@ private fun DeleteHabitDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("删除「$habitName」？") },
-        text = { Text("首页将不再显示它，历史打卡记录仍然保留。") },
+        title = { Text(stringResource(R.string.delete_title, habitName)) },
+        text = { Text(stringResource(R.string.delete_text)) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text("删除", color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.delete_confirm), color = MaterialTheme.colorScheme.error)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
         }
     )
 }
@@ -436,13 +440,13 @@ private fun HomeContent(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "还没有习惯",
+                    text = stringResource(R.string.home_empty_title),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "点右下角 + 添加第一个",
+                    text = stringResource(R.string.home_empty_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -547,12 +551,12 @@ private fun HomeContent(
                         is HomeRow.HabitRow -> {
                             val habit = row.habit
                             val a11yActions = listOf(
-                                (if (habit.pinned) "取消置顶" else "置顶") to
+                                (if (habit.pinned) stringResource(R.string.a11y_pin_on) else stringResource(R.string.a11y_pin_off)) to
                                     { onTogglePin(habit.id) },
-                                "编辑" to { onEditHabit(habit.id) },
-                                "上移一位" to { onMoveUp(habit.id) },
-                                "下移一位" to { onMoveDown(habit.id) },
-                                "删除" to { onRequestDelete(habit) }
+                                stringResource(R.string.a11y_edit) to { onEditHabit(habit.id) },
+                                stringResource(R.string.a11y_move_up) to { onMoveUp(habit.id) },
+                                stringResource(R.string.a11y_move_down) to { onMoveDown(habit.id) },
+                                stringResource(R.string.a11y_delete) to { onRequestDelete(habit) }
                             )
                             Box(
                                 modifier = Modifier
@@ -599,7 +603,20 @@ private fun HomeContent(
             }
 
             item(key = FOOTER_KEY) {
-                Spacer(modifier = Modifier.height(24.dp))
+                // V4.11 清理时误删的「左右滑提示」补回：让用户知道卡片能滑。
+                // 用当前代码实际方向——左滑=编辑、右滑=置顶（删除误触风险高，留在操作面板里）。
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, bottom = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = stringResource(R.string.home_swipe_hint),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
 
@@ -706,7 +723,7 @@ private fun PinDropZone(
             )
             Spacer(modifier = Modifier.padding(start = 8.dp))
             Text(
-                text = if (hovering) "松手置顶" else "拖到这里置顶",
+                text = if (hovering) stringResource(R.string.home_pin_hint_release) else stringResource(R.string.home_pin_hint_drag),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -1156,7 +1173,7 @@ private fun SwipeableHabitCard(
                     contentAlignment = Alignment.CenterEnd
                 ) {
                     Text(
-                        text = "编辑",
+                        text = stringResource(R.string.home_swipe_edit),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -1173,7 +1190,7 @@ private fun SwipeableHabitCard(
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
-                        text = if (habit.pinned) "取消置顶" else "置顶",
+                        text = if (habit.pinned) stringResource(R.string.home_swipe_unpin) else stringResource(R.string.home_swipe_pin),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -1197,18 +1214,18 @@ private fun TodaySummary(
     modifier: Modifier = Modifier
 ) {
     val progress = if (total == 0) 0f else done.toFloat() / total.toFloat()
+    // 读屏：把整块汇总读成一句话（semantics 块不是 Composable 上下文，先在这里算好）
+    val summaryDesc = stringResource(R.string.home_summary_full, done, total) +
+        "，" + stringResource(R.string.home_summary_label) + " " + (progress * 100).toInt() + "%"
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
-            // 读屏：把整块汇总读成一句话，而不是一串散落的数字
-            .semantics {
-                contentDescription = "今日进度：$done / $total 已完成，完成率 ${(progress * 100).toInt()}%"
-            }
+            .semantics { contentDescription = summaryDesc }
     ) {
         Text(
-            text = "今日进度",
+            text = stringResource(R.string.home_summary_label),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -1223,7 +1240,7 @@ private fun TodaySummary(
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = " / $total 已完成",
+                text = stringResource(R.string.home_summary_done, total),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 6.dp)
@@ -1250,11 +1267,17 @@ private fun TodaySummary(
     }
 }
 
-/** 标题栏日期文案，例如「8月30日 周日」。minSdk 26 起 java.time 原生可用，无需额外依赖。 */
+/** 标题栏日期文案，例如「8月30日 周日」/「Tue, Sep 2」。随应用语言本地化。 */
+@Composable
 private fun todayTitle(): String {
+    val locale = LocalContext.current.resources.configuration.locales[0] ?: Locale.getDefault()
     val today = LocalDate.now()
-    val weekday = today.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.CHINA)
-    return "${today.monthValue}月${today.dayOfMonth}日 $weekday"
+    return if (locale.language == "zh") {
+        val weekday = today.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
+        "${today.monthValue}月${today.dayOfMonth}日 $weekday"
+    } else {
+        DateTimeFormatter.ofPattern("EEE, MMM d", locale).format(today)
+    }
 }
 
 /** Preview 专用假数据，只用于 IDE 预览，真数据来自 Room */

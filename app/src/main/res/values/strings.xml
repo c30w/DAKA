@@ -1,6 +1,208 @@
 <resources>
+    <!-- 应用名（一直叫 DAKA） -->
     <string name="app_name">DAKA</string>
+
+    <!-- 小组件描述 -->
     <string name="widget_description">快速查看今日打卡进度</string>
     <string name="widget_description_big">今日打卡清单，桌面直接勾选</string>
     <string name="widget_description_wide">今日进度与各习惯完成状态</string>
+
+    <!-- 通用 -->
+    <string name="common_back">返回</string>
+    <string name="common_confirm">确定</string>
+    <string name="common_cancel">取消</string>
+    <string name="common_close">关闭</string>
+    <string name="common_today">今天</string>
+    <string name="common_share">分享</string>
+    <string name="common_save">保存</string>
+    <string name="common_no">无</string>
+
+    <!-- 首页 -->
+    <string name="home_empty_title">还没有习惯</string>
+    <string name="home_empty_hint">点右下角 + 添加第一个</string>
+    <string name="home_summary_label">今日进度</string>
+    <string name="home_summary_done">/ %1$d 已完成</string>
+    <string name="home_summary_full">%1$d / %2$d 已完成</string>
+    <string name="home_pin_hint_drag">拖到这里置顶</string>
+    <string name="home_pin_hint_release">松手置顶</string>
+    <string name="home_swipe_edit">编辑</string>
+    <string name="home_swipe_pin">置顶</string>
+    <string name="home_swipe_unpin">取消置顶</string>
+    <string name="home_swipe_hint">左滑编辑 · 右滑置顶 · 长按拖动排序</string>
+    <string name="home_today_label">今天</string>
+    <string name="a11y_pin_on">取消置顶</string>
+    <string name="a11y_pin_off">置顶</string>
+    <string name="a11y_edit">编辑</string>
+    <string name="a11y_move_up">上移一位</string>
+    <string name="a11y_move_down">下移一位</string>
+    <string name="a11y_delete">删除</string>
+    <string name="sheet_edit">编辑习惯</string>
+    <string name="sheet_pin">置顶</string>
+    <string name="sheet_unpin">取消置顶</string>
+    <string name="sheet_move_up">上移一位</string>
+    <string name="sheet_move_down">下移一位</string>
+    <string name="sheet_delete">删除习惯</string>
+    <string name="delete_title">删除「%1$s」？</string>
+    <string name="delete_text">首页将不再显示它，历史打卡记录仍然保留。</string>
+    <string name="delete_confirm">删除</string>
+    <string name="card_streak">连续 %1$d 天</string>
+    <string name="card_no_streak">还没开始</string>
+    <string name="card_done">已完成</string>
+    <string name="card_not_done">未完成</string>
+    <string name="card_pinned">已置顶</string>
+    <string name="cd_settings">设置</string>
+    <string name="cd_calendar">提醒日历</string>
+
+    <!-- 新建 / 编辑习惯 -->
+    <string name="create_title_new">新建习惯</string>
+    <string name="create_title_edit">编辑习惯</string>
+    <string name="create_name_label">习惯名称</string>
+    <string name="create_name_placeholder">例如：喝水 2L</string>
+    <string name="create_category">分类</string>
+    <string name="create_custom_category">自定义分类（可选）</string>
+    <string name="create_custom_category_hint">如：运动、读书、副业</string>
+    <string name="create_new_category">将新建分类「%1$s」</string>
+    <string name="create_icon">选个图标</string>
+    <string name="create_color">选个颜色</string>
+    <string name="create_more_icons">更多图标</string>
+    <string name="create_more_colors">更多颜色</string>
+    <string name="create_more">更多</string>
+    <string name="create_save_new">保存</string>
+    <string name="create_save_edit">保存修改</string>
+    <string name="picker_icons">选择图标</string>
+    <string name="picker_colors">选择颜色</string>
+
+    <!-- 设置 -->
+    <string name="settings_title">设置</string>
+    <string name="settings_general">通用</string>
+    <string name="settings_sound">交互音效</string>
+    <string name="settings_sound_desc">打卡、置顶等操作时的清脆提示音</string>
+    <string name="settings_calendar">提醒日历</string>
+    <string name="settings_calendar_desc">按月查看全部提醒，并同步到手机日历（安卓日历 / 谷歌日历）</string>
+    <string name="settings_backup">备份与恢复</string>
+    <string name="settings_backup_desc">备份：把全部习惯和打卡记录存成 JSON 文件；恢复：选择备份文件，先预览内容再确认。</string>
+    <string name="settings_backup_btn">备份</string>
+    <string name="settings_restore_btn">恢复</string>
+    <string name="settings_about">说明</string>
+    <string name="settings_about_desc">数据只保存在这台手机上，不会上传到任何服务器。\n换手机或重装前，记得先导出一份备份。</string>
+    <string name="settings_habit_reminder">习惯提醒</string>
+    <string name="settings_no_habit">还没有习惯，先去首页添加一个</string>
+    <string name="settings_missing_perm">还差权限：%1$s。开启提醒时会自动引导你去打开。</string>
+    <string name="settings_default_reminder">新建习惯的默认提醒时间</string>
+    <string name="settings_default_reminder_desc">目前是每天 %1$s，新建时可以单独改</string>
+    <string name="settings_default_reminder_title">默认提醒时间</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_language_desc">界面显示语言</string>
+    <string name="settings_language_system">跟随系统</string>
+    <string name="settings_language_zh">中文</string>
+    <string name="settings_language_en">English</string>
+    <string name="snack_alarm_perm">需要「闹钟和提醒」权限才能准时提醒</string>
+    <string name="snack_notif_perm">没给通知权限，提醒不会响</string>
+    <string name="snack_exported">备份已导出</string>
+    <string name="snack_export_fail">导出失败：%1$s</string>
+    <string name="import_title">确认恢复这份备份？</string>
+    <string name="import_fail_title">无法读取备份</string>
+    <string name="import_fail_text">读取失败：%1$s</string>
+    <string name="import_summary">这份备份包含 %1$d 个习惯、%2$d 条打卡记录，导出于 %3$s。\n\n恢复后将与当前数据合并，id 相同的记录会被覆盖。</string>
+    <string name="import_confirm">恢复</string>
+    <string name="reminder_on">提醒已开启</string>
+    <string name="reminder_exact_warn">已保存，但系统不允许精确闹钟，提醒时间可能不准</string>
+    <string name="reminder_off">提醒已关闭</string>
+    <string name="restore_done">已恢复 %1$d 个习惯</string>
+    <string name="restore_fail">恢复失败：%1$s</string>
+    <string name="perm_notification">通知</string>
+    <string name="perm_alarm">闹钟和提醒</string>
+    <string name="notification_channel">打卡提醒</string>
+    <string name="notification_channel_desc">每天提醒还没完成的习惯</string>
+    <string name="notification_title">%1$s 该做「%2$s」了</string>
+    <string name="notification_body">点一下打开 DAKA 完成今天的打卡</string>
+
+    <!-- 日历 -->
+    <string name="calendar_title">提醒日历</string>
+    <string name="calendar_prev_month">上个月</string>
+    <string name="calendar_next_month">下个月</string>
+    <string name="calendar_makeup_short">班</string>
+    <string name="calendar_reminder_count">%1$d 条</string>
+    <string name="calendar_empty_day">这一天没有提醒，也没有日程</string>
+    <string name="calendar_habit_section">习惯提醒 · %1$d</string>
+    <string name="calendar_phone_section">手机日程 · %1$d</string>
+    <string name="calendar_sync">同步到手机日历</string>
+    <string name="calendar_sync_desc">把习惯提醒写进系统日历（安卓日历 / 谷歌日历 / 厂商日历），日历 App 里也能看到和提醒；同时把日历里的日程读到这里显示。</string>
+    <string name="calendar_auth">授权读取日历</string>
+    <string name="calendar_no_writable">没有可写入的日历</string>
+    <string name="calendar_no_writable_hint">手机上没有可写入的日历，请先在日历 App 里添加一个账户</string>
+    <string name="calendar_sync_on">开启同步</string>
+    <string name="calendar_sync_on_desc">已开启</string>
+    <string name="calendar_sync_off_desc">关闭后会把已写入的提醒从日历里删掉</string>
+    <string name="calendar_which">写到哪个日历</string>
+    <string name="calendar_sync_now">立即同步</string>
+    <string name="calendar_readable_hint">已读取到系统日历日程，月历上以横杠标记</string>
+    <string name="calendar_selected">已选</string>
+    <string name="snack_calendar_perm">没有日历权限，读不到日程也无法同步</string>
+    <string name="snack_calendar_stopped">已停止同步，日历里的 DAKA 提醒已清除</string>
+    <string name="snack_calendar_pick">先选一个日历</string>
+    <string name="snack_calendar_synced">已同步 %1$d 个提醒到系统日历</string>
+    <string name="snack_calendar_sync_fail">同步失败：%1$s</string>
+    <string name="calendar_sys_calendar">系统日历</string>
+    <string name="calendar_all_day">全天</string>
+    <string name="calendar_makeup_work">调休上班</string>
+    <string name="calendar_holiday_suffix">（放假）</string>
+
+    <!-- 提醒设置编辑器 -->
+    <string name="reminder_title">提醒我去做</string>
+    <string name="reminder_on_desc">已开启</string>
+    <string name="reminder_off_desc">关闭时不会收到任何通知</string>
+    <string name="reminder_time_section">提醒时间</string>
+    <string name="reminder_repeat_section">重复方式</string>
+    <string name="reminder_every_day">每天都提醒</string>
+    <string name="reminder_interval_label">间隔</string>
+    <string name="reminder_interval_suffix">天</string>
+    <string name="reminder_interval_hint">从开始日期起，每 %1$d 天提醒一次</string>
+    <string name="reminder_weekly_none">还没选星期，此时等同于每天提醒</string>
+    <string name="reminder_weekly_picked">已选 %1$d 天</string>
+    <string name="reminder_monthly_none">还没选日期，此时等同于每天提醒</string>
+    <string name="reminder_monthly_picked">每月 %1$s 号（小月没有的日期会自动跳过）</string>
+    <string name="reminder_workday">周一至周五提醒，周末不打扰</string>
+    <string name="reminder_weekend">周六、周日提醒</string>
+    <string name="reminder_end_section">结束方式</string>
+    <string name="reminder_never">一直提醒下去，直到你手动关掉</string>
+    <string name="reminder_after_times_label">总共提醒</string>
+    <string name="reminder_after_times_suffix">次</string>
+    <string name="reminder_after_times_hint">提醒满 %1$d 次后自动停止</string>
+    <string name="reminder_start_section">开始日期</string>
+    <string name="reminder_end_date">结束日期</string>
+    <string name="reminder_start_from">从哪天开始</string>
+    <string name="reminder_start_hint">留空则从今天开始。「每 N 天」需要它来当计数起点</string>
+    <string name="reminder_pick_time">选择提醒时间</string>
+    <string name="reminder_date_any">不限</string>
+    <string name="reminder_clear">清除</string>
+    <string name="reminder_decrease">减少</string>
+    <string name="reminder_increase">增加</string>
+    <string name="reminder_dialog_title">「%1$s」的提醒</string>
+
+    <!-- 重复方式 / 结束方式（枚举） -->
+    <string name="repeat_daily">每天</string>
+    <string name="repeat_interval">每隔几天</string>
+    <string name="repeat_weekly">每周</string>
+    <string name="repeat_monthly">每月</string>
+    <string name="repeat_workday">工作日</string>
+    <string name="repeat_weekend">周末</string>
+    <string name="end_never">永不</string>
+    <string name="end_after_times">若干次后</string>
+    <string name="end_on_date">指定日期</string>
+
+    <!-- 新手引导 -->
+    <string name="onboarding_step1_title">欢迎使用 DAKA</string>
+    <string name="onboarding_step1_body">点一下习惯卡片就能打卡，今天完成了几项一目了然。</string>
+    <string name="onboarding_step2_title">左右滑动有快捷操作</string>
+    <string name="onboarding_step2_body">左滑卡片 = 编辑；右滑卡片 = 置顶。长按卡片可以拖动排序。</string>
+    <string name="onboarding_step3_title">添加你的第一个习惯</string>
+    <string name="onboarding_step3_body">点右下角的 +，挑个图标和颜色，还能设置每天提醒。</string>
+    <string name="onboarding_step4_title">桌面小组件</string>
+    <string name="onboarding_step4_body">长按桌面添加 DAKA 小组件，桌面直接勾选，不用打开 App。</string>
+    <string name="onboarding_dont_show">不再显示</string>
+    <string name="onboarding_next">下一步</string>
+    <string name="onboarding_skip">跳过</string>
+    <string name="onboarding_close">关闭</string>
+    <string name="onboarding_page">第 %1$d / %2$d 步</string>
 </resources>

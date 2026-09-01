@@ -1,8 +1,10 @@
 package com.marvin.daka.ui.settings
 
 import android.Manifest
+import android.app.Activity
 import android.app.AlarmManager
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -10,6 +12,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,12 +63,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marvin.daka.audio.SoundEffectPlayer
 import com.marvin.daka.data.AppPrefs
+import com.marvin.daka.data.LanguagePrefs
+import com.marvin.daka.R
 import com.marvin.daka.model.Habit
 import com.marvin.daka.model.ReminderConfig
 import com.marvin.daka.reminder.NotificationHelper
@@ -143,7 +149,7 @@ fun SettingsScreen(
             if (hasExactAlarmPermission(context)) {
                 commitReminder(viewModel, context, pending, snackbarHostState, scope)
             } else {
-                snackbarHostState.showSnackbar("需要「闹钟和提醒」权限才能准时提醒")
+                snackbarHostState.showSnackbar(context.getString(R.string.snack_alarm_perm))
             }
         }
     }
@@ -155,7 +161,7 @@ fun SettingsScreen(
 
         if (!granted) {
             pendingSave = null
-            scope.launch { snackbarHostState.showSnackbar("没给通知权限，提醒不会响") }
+            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snack_notif_perm)) }
             return@rememberLauncherForActivityResult
         }
 
@@ -206,8 +212,8 @@ fun SettingsScreen(
                     // V4.2：导出完顺手递上「分享」入口（微信/网盘/文件管理器随便发），
                     // 不用再让用户自己去文件系统里翻刚存的那个文件在哪
                     val action = snackbarHostState.showSnackbar(
-                        message = "备份已导出",
-                        actionLabel = "分享",
+                        message = context.getString(R.string.snack_exported),
+                        actionLabel = context.getString(R.string.common_share),
                         duration = SnackbarDuration.Long
                     )
                     if (action == SnackbarResult.ActionPerformed) {
@@ -216,10 +222,10 @@ fun SettingsScreen(
                             putExtra(Intent.EXTRA_STREAM, uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
-                        context.startActivity(Intent.createChooser(share, "分享备份文件"))
+                        context.startActivity(Intent.createChooser(share, context.getString(R.string.common_share)))
                     }
                 },
-                onFailure = { snackbarHostState.showSnackbar("导出失败：${it.message}") }
+                onFailure = { snackbarHostState.showSnackbar(context.getString(R.string.snack_export_fail, it.message)) }
             )
         }
     }
@@ -251,16 +257,20 @@ fun SettingsScreen(
     // 正在编辑提醒的那个习惯
     var editingHabit by remember { mutableStateOf<Habit?>(null) }
 
+    // i18n：语言选择弹窗开关
+    var showLangDialog by remember { mutableStateOf(false) }
+    val currentLangCode = LanguagePrefs.getCode(context)
+
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("设置") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         // AutoMirrored 版本，RTL 布局下箭头会自动翻转方向
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 }
             )
@@ -286,7 +296,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             // ---------------- 默认时间 + 日历入口 ----------------
-            SectionTitle("通用")
+            SectionTitle(stringResource(R.string.settings_general))
             DefaultReminderTimeItem(prefs = prefs)
             Spacer(modifier = Modifier.height(12.dp))
             // 音效开关：配合清脆交互音效，可一键静音
@@ -303,13 +313,13 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "交互音效",
+                            text = stringResource(R.string.settings_sound),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "打卡、置顶等操作时的清脆提示音",
+                            text = stringResource(R.string.settings_sound_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -326,10 +336,18 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(12.dp))
             SettingsItem(
-                title = "提醒日历",
-                subtitle = "按月查看全部提醒，并同步到手机日历（安卓日历 / 谷歌日历）",
+                title = stringResource(R.string.settings_calendar),
+                subtitle = stringResource(R.string.settings_calendar_desc),
                 enabled = true,
                 onClick = onOpenCalendar
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            // i18n：语言选择。改完立即写偏好并 recreate 整个 Activity 让界面刷新
+            SettingsItem(
+                title = stringResource(R.string.settings_language),
+                subtitle = stringResource(R.string.settings_language_desc),
+                enabled = true,
+                onClick = { showLangDialog = true }
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -337,7 +355,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             // ---------------- 备份 ----------------
-            SectionTitle("备份与恢复")
+            SectionTitle(stringResource(R.string.settings_backup))
 
             // V4.6：备份/恢复改成两个独立、显眼的按钮（而不是普通列表项），
             // 一眼就能看到、直接点，不用在设置列表里往下翻。
@@ -345,9 +363,9 @@ fun SettingsScreen(
             // 恢复是「上传/导入」箭头（把数据读进来），方向感和动作一一对应。
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 BackupRestoreButton(
-                    text = "备份",
+                    text = stringResource(R.string.settings_backup_btn),
                     icon = Icons.Filled.FileDownload,
-                    iconDesc = "备份",
+                    iconDesc = stringResource(R.string.settings_backup_btn),
                     enabled = !busy,
                     modifier = Modifier.weight(1f),
                     onClick = {
@@ -356,9 +374,9 @@ fun SettingsScreen(
                     }
                 )
                 BackupRestoreButton(
-                    text = "恢复",
+                    text = stringResource(R.string.settings_restore_btn),
                     icon = Icons.Filled.FileUpload,
-                    iconDesc = "恢复",
+                    iconDesc = stringResource(R.string.settings_restore_btn),
                     enabled = !busy,
                     modifier = Modifier.weight(1f),
                     onClick = { importLauncher.launch(arrayOf("application/json")) }
@@ -366,16 +384,15 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "备份：把全部习惯和打卡记录存成 JSON 文件；恢复：选择备份文件，先预览内容再确认。",
+                text = stringResource(R.string.settings_backup_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(24.dp))
-            SectionTitle("说明")
+            SectionTitle(stringResource(R.string.settings_about))
             Text(
-                text = "数据只保存在这台手机上，不会上传到任何服务器。\n" +
-                    "换手机或重装前，记得先导出一份备份。",
+                text = stringResource(R.string.settings_about_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -401,19 +418,28 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { pendingImport = null },
             title = {
-                Text(if (summary.error == null) "确认恢复这份备份？" else "无法读取备份")
+                Text(
+                    if (summary.error == null) {
+                        stringResource(R.string.import_title)
+                    } else {
+                        stringResource(R.string.import_fail_title)
+                    }
+                )
             },
             text = {
                 when {
-                    summary.error != null -> Text("读取失败：${summary.error}")
+                    summary.error != null -> Text(stringResource(R.string.import_fail_text, summary.error))
                     else -> {
                         val dateText = Instant.ofEpochMilli(summary.exportedAt)
                             .atZone(ZoneId.systemDefault())
                             .toLocalDate()
                         Text(
-                            "这份备份包含 ${summary.habitCount} 个习惯、" +
-                                "${summary.recordCount} 条打卡记录，导出于 $dateText。\n\n" +
-                                "恢复后将与当前数据合并，id 相同的记录会被覆盖。"
+                            stringResource(
+                                R.string.import_summary,
+                                summary.habitCount,
+                                summary.recordCount,
+                                dateText.toString()
+                            )
                         )
                     }
                 }
@@ -432,20 +458,78 @@ fun SettingsScreen(
                                 busy = false
                                 snackbarHostState.showSnackbar(
                                     result.fold(
-                                        onSuccess = { count -> "已恢复 $count 个习惯" },
-                                        onFailure = { "恢复失败：${it.message}" }
+                                        onSuccess = { count -> context.getString(R.string.restore_done, count) },
+                                        onFailure = { context.getString(R.string.restore_fail, it.message) }
                                     )
                                 )
                             }
                         }
-                    ) { Text("恢复") }
+                    ) { Text(stringResource(R.string.import_confirm)) }
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingImport = null }) { Text("取消") }
+                TextButton(onClick = { pendingImport = null }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
+
+    // i18n：语言选择弹窗（跟随系统 / 中文 / English）。改完立刻生效。
+    if (showLangDialog) {
+        val options = listOf(
+            "" to stringResource(R.string.settings_language_system),
+            "zh" to stringResource(R.string.settings_language_zh),
+            "en" to stringResource(R.string.settings_language_en)
+        )
+        AlertDialog(
+            onDismissRequest = { showLangDialog = false },
+            title = { Text(stringResource(R.string.settings_language)) },
+            text = {
+                Column {
+                    options.forEach { (code, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showLangDialog = false
+                                    if (code != currentLangCode) {
+                                        LanguagePrefs.setCode(context, code)
+                                        // 语言已写入，重建 Activity 让所有界面立即用新语言重绘
+                                        context.findActivity()?.recreate()
+                                    }
+                                }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (code == currentLangCode) {
+                                Text(
+                                    text = "✓",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLangDialog = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            }
+        )
+    }
+}
+
+/** 从任意 Context（含被 locale 包装过的）一路向上找到 Activity */
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 /**
@@ -468,12 +552,12 @@ private fun commitReminder(
         snackbarHostState.showSnackbar(
             if (config.enabled) {
                 if (ReminderScheduler.canScheduleExact(context)) {
-                    "提醒已开启"
+                    context.getString(R.string.reminder_on)
                 } else {
-                    "已保存，但系统不允许精确闹钟，提醒时间可能不准"
+                    context.getString(R.string.reminder_exact_warn)
                 }
             } else {
-                "提醒已关闭"
+                context.getString(R.string.reminder_off)
             }
         )
     }
@@ -507,11 +591,11 @@ private fun HabitReminderSection(
     val context = LocalContext.current
 
     Column(modifier = modifier) {
-        SectionTitle("习惯提醒")
+        SectionTitle(stringResource(R.string.settings_habit_reminder))
 
         if (habits.isEmpty()) {
             Text(
-                text = "还没有习惯，先去首页添加一个",
+                text = stringResource(R.string.settings_no_habit),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -527,7 +611,12 @@ private fun HabitReminderSection(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "还差权限：${missingPermissions.joinToString("、")}。开启提醒时会自动引导你去打开。",
+                    text = stringResource(
+                        R.string.settings_missing_perm,
+                        missingPermissions.joinToString(
+                            if (context.resources.configuration.locales[0]?.language == "zh") "、" else ", "
+                        )
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer,
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
@@ -607,8 +696,12 @@ private fun HabitReminderRow(
 /** 当前缺哪些提醒权限。空列表 = 都齐了 */
 private fun missingReminderPermissions(context: Context): List<String> {
     val result = mutableListOf<String>()
-    if (!NotificationHelper.hasPermission(context)) result += "通知"
-    if (!hasExactAlarmPermission(context)) result += "闹钟和提醒"
+    if (!NotificationHelper.hasPermission(context)) {
+        result += context.getString(R.string.perm_notification)
+    }
+    if (!hasExactAlarmPermission(context)) {
+        result += context.getString(R.string.perm_alarm)
+    }
     return result
 }
 
@@ -629,8 +722,11 @@ private fun DefaultReminderTimeItem(prefs: ReminderPrefs) {
     var showTimePicker by remember { mutableStateOf(false) }
 
     SettingsItem(
-        title = "新建习惯的默认提醒时间",
-        subtitle = "目前是每天 %02d:%02d，新建时可以单独改".format(hour, minute),
+        title = stringResource(R.string.settings_default_reminder),
+        subtitle = stringResource(
+            R.string.settings_default_reminder_desc,
+            "%02d:%02d".format(hour, minute)
+        ),
         enabled = true,
         onClick = { showTimePicker = true }
     )
@@ -643,7 +739,7 @@ private fun DefaultReminderTimeItem(prefs: ReminderPrefs) {
         )
         TimePickerDialog(
             // 新版 M3 把 title 提到了第一个**必需**参数位置，不传编译不过
-            title = { Text("默认提醒时间") },
+            title = { Text(stringResource(R.string.settings_default_reminder_title)) },
             onDismissRequest = { showTimePicker = false },
             confirmButton = {
                 TextButton(
@@ -651,10 +747,10 @@ private fun DefaultReminderTimeItem(prefs: ReminderPrefs) {
                         showTimePicker = false
                         scope.launch { prefs.setDefaultTime(state.hour, state.minute) }
                     }
-                ) { Text("确定") }
+                ) { Text(stringResource(R.string.common_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) { Text("取消") }
+                TextButton(onClick = { showTimePicker = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         ) {
             TimePicker(state = state)
