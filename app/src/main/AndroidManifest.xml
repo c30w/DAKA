@@ -88,21 +88,6 @@
                 android:resource="@xml/habit_widget_info" />
         </receiver>
 
-        <!--
-          V4.7：新增的 1x1 小组件。系统把「每个尺寸的 provider」当成一个独立可添加的小组件，
-          所以三种尺寸各占一个 receiver + 一个 info.xml，互不干扰。
-        -->
-        <receiver
-            android:name=".widget.HabitWidgetSmallReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/habit_widget_small_info" />
-        </receiver>
-
         <!-- V4.7：新增的 1x4 小组件。 -->
         <receiver
             android:name=".widget.HabitWidgetWideReceiver"
@@ -113,6 +98,18 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/habit_widget_wide_info" />
+        </receiver>
+
+        <!-- 4x3 小组件：Google Keep 清单大号版，能放更多行。 -->
+        <receiver
+            android:name=".widget.HabitWidgetBigReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/habit_widget_big_info" />
         </receiver>
     </application>
 

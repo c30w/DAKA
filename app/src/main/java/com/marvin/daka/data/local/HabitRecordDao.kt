@@ -23,6 +23,17 @@ interface HabitRecordDao {
     fun observeAll(): Flow<List<HabitRecord>>
 
     /**
+     * 一次性读取某天的全部打卡记录（suspend，不是 Flow）。
+     *
+     * 给小组件用：组件在每次重绘前都要「现在的值」，而且是在写完库之后**紧接着**读，
+     * 如果用 [observeAll] 的 Flow 再 `.first()`，Room 的失效通知还没传播，
+     * 容易拿到写入前的旧值——表现就是「桌面点了没反应，等会儿才变」。
+     * suspend 查询每次都真打库、拿到的是已提交的最新行，不受 Flow 缓存影响。
+     */
+    @Query("SELECT * FROM habit_records WHERE date = :date")
+    suspend fun getByDate(date: String): List<HabitRecord>
+
+    /**
      * 插入一条打卡记录。
      *
      * onConflict = IGNORE 配合表上的 (habitId, date) 唯一索引：

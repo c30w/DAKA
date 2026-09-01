@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">DAKA</string>
     <string name="widget_description">快速查看今日打卡进度</string>
-    <string name="widget_description_small">极简显示今日已完成数</string>
+    <string name="widget_description_big">今日打卡清单，桌面直接勾选</string>
     <string name="widget_description_wide">今日进度与各习惯完成状态</string>
 </resources>

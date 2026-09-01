@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 4x3 小组件元数据：Google Keep 清单大号版，能放更多行。
+     targetCellWidth = 4（约 250dp）、targetCellHeight = 3（约 180dp）。
+     resizeMode = 允许横竖调整，方便用户按需放大缩小。 -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="180dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="3"
+    android:maxResizeWidth="450dp"
+    android:maxResizeHeight="350dp"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/habit_widget_placeholder_big"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_description_big" />

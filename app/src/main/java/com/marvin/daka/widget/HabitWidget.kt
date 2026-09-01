@@ -189,9 +189,10 @@ internal fun HabitCheckCircle(isDone: Boolean, sizeDp: Int, checkSp: Int) {
 /**
  * 共享：一个习惯的「清单行」——左侧复选框圆 + 右侧 emoji+名称，整行可点切换。
  * 复选框圆用 [HabitCheckCircle]，这里只负责横排布局。
+ * [sizeDp] 控制复选框直径（2×2 用 26，4×3 用 28），[nameMax] 限制名称字数避免换行。
  */
 @Composable
-private fun HabitCheckRow(habit: Habit, isDone: Boolean) {
+internal fun HabitCheckRow(habit: Habit, isDone: Boolean, sizeDp: Int = 26, nameMax: Int = 10) {
     val toggle = actionRunCallback<ToggleHabitAction>(
         actionParametersOf(HabitIdKey to habit.id.toString())
     )
@@ -202,10 +203,10 @@ private fun HabitCheckRow(habit: Habit, isDone: Boolean) {
             .padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        HabitCheckCircle(isDone = isDone, sizeDp = 26, checkSp = 15)
+        HabitCheckCircle(isDone = isDone, sizeDp = sizeDp, checkSp = (sizeDp * 0.58).toInt())
         Spacer(GlanceModifier.width(10.dp))
         Text(
-            text = "${habit.emoji} ${habit.name.take(10)}",
+            text = "${habit.emoji} ${habit.name.take(nameMax)}",
             style = TextStyle(
                 fontSize = 14.sp,
                 color = ColorProvider(if (isDone) Color(0xFF6B6B78) else Color(0xFFE6E6EE))
@@ -217,26 +218,29 @@ private fun HabitCheckRow(habit: Habit, isDone: Boolean) {
 /**
  * 一次读库，返回「今天的全部活跃习惯」+「每个习惯今天是否已打卡」。
  *
- * 三种小组件共用：2×2 只取 done/total + 前 3 行，1×1 取总进度，1×4 要逐行列习惯，
+ * 四种小组件共用：2×2 只取 done/total + 前 3 行，4×3 取前 6 行，1×4 要逐行列习惯，
  * 所以统一在这拿「带完成状态的列表」，各取所需。
  *
  * 排序：置顶在前、按 sortOrder，和首页一致，组件里列出来才对得上号。
+ *
+ * ⚠️ 打卡记录用 [com.marvin.daka.data.local.HabitRecordDao.getByDate] 直查（suspend），
+ * 不碰 [com.marvin.daka.data.local.HabitRecordDao.observeAll] 的 Flow——后者在同一协程
+ * 写完库紧接着读时，失效通知还没传播，会读到旧值，组件就「点了没反应」。
  */
 internal suspend fun loadTodayHabits(context: Context): List<Pair<Habit, Boolean>> {
     val db = DatabaseProvider.get(context)
     val habits = db.habitDao().getAllActive()
         .sortedWith(compareBy<Habit> { !it.pinned }.thenBy { it.sortOrder }.thenBy { it.createdAt })
     val today = todayString()
-    val records = db.habitRecordDao().observeAll().first()
-    val todaySet = records.filter { it.date == today }.map { it.habitId }.toSet()
+    val todaySet = db.habitRecordDao().getByDate(today).map { it.habitId }.toSet()
     return habits.map { it to (it.id in todaySet) }
 }
 
-/** 数据变更后调用，让全部三种小组件（2×2 / 1×1 / 1×4）一起刷新。 */
+/** 数据变更后调用，让全部小组件（2×2 / 1×4 / 4×3）一起刷新。 */
 suspend fun refreshHabitWidgets(context: Context) {
     HabitWidget().updateAll(context)
-    HabitWidgetSmall().updateAll(context)
     HabitWidgetWide().updateAll(context)
+    HabitWidgetBig().updateAll(context)
 }
 
 // ------------------------------------------------------------------
@@ -280,8 +284,7 @@ internal suspend fun toggleHabitToday(context: Context, habitId: Long) {
     withContext(Dispatchers.IO) {
         val db = DatabaseProvider.get(context)
         val today = todayString()
-        val records = db.habitRecordDao().observeAll().first()
-        val done = records.any { it.habitId == habitId && it.date == today }
+        val done = db.habitRecordDao().getByDate(today).any { it.habitId == habitId }
         if (done) {
             db.habitRecordDao().deleteByDate(habitId, today)
         } else {
