@@ -66,7 +66,15 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug
+        # 踩过的坑（2026-09-01，run #8）：
+        # settings.gradle.kts 里阿里云镜像放在最前面，但 GitHub runner 在美国，
+        # 访问阿里云镜像不稳定，导致 KSP 插件解析时 6 个仓库都失败（CI 里既连不上
+        # 阿里云、又被镜像抢了顺序），报 "com.google.devtools.ksp not found"。
+        # 本地能过是因为本地连阿里云正常。解法：CI 里用 DAKA_NO_MIRROR=true 关掉
+        # 阿里云镜像，直接走官方源（google/mavenCentral），美国 runner 上反而更快更稳。
+        env:
+          DAKA_NO_MIRROR: "true"
+        run: ./gradlew assembleDebug --refresh-dependencies
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
