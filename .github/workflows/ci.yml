@@ -9,6 +9,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # 编译 SDK 的主版本号，必须和 app/build.gradle.kts 里的 compileSdk 保持一致。
+      # 项目升 API 等级时，CI 只需要改这一个数字。
+      ANDROID_COMPILE_SDK: "37"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,10 +26,38 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Accept licenses & install build platform
+      - name: Accept licenses & install SDK platform
+        # ⚠️ 踩过的坑（2026-09-01，run #2 起全红）：
+        # Google 从 API 37 开始给平台包 id 加了小版本号，远端仓库里只有
+        #   platforms;android-37.0 / platforms;android-37.1 / platforms;android-37.2 …
+        # **不存在** 裸的 platforms;android-37。原来写死 `sdkmanager "platforms;android-37"`
+        # 会让 sdkmanager 报 "Failed to find package" 并以退出码 1 结束——注意它挂在
+        # **编译之前**，所以跟项目代码没关系，本地（Android Studio 装的正是
+        # platforms/android-37.0）一直是好的。
+        # 改为：先向 sdkmanager 要一次远端清单，再挑该主版本下最新的稳定包来装。
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platforms;android-37"
+          set -eu
+          # 先收下所有 SDK 许可，否则装包会卡在交互确认上。
+          # 顺便在 $ANDROID_HOME/licenses 留下许可文件——AGP 的自动补包也依赖它。
+          yes 2>/dev/null | sdkmanager --licenses > /dev/null
+          PLATFORM_PKG="$(
+            sdkmanager --list 2>/dev/null \
+              | tr -d '\r' \
+              | grep -i "platforms;android-${ANDROID_COMPILE_SDK}" \
+              | grep -viE 'beta|alpha|canary|-rc' \
+              | grep -oE "platforms;android-${ANDROID_COMPILE_SDK}(\.[0-9]+)?" \
+              | sort -uV \
+              | tail -n 1 \
+              || true
+          )"
+          if [ -z "$PLATFORM_PKG" ]; then
+            echo "::error::SDK 远端清单里找不到 API ${ANDROID_COMPILE_SDK} 的稳定平台包"
+            sdkmanager --list 2>/dev/null | grep -i 'platforms;android-' || true
+            exit 1
+          fi
+          echo "安装平台包：$PLATFORM_PKG"
+          sdkmanager --install "$PLATFORM_PKG"
+          echo "当前 SDK 里的平台：$(ls "$ANDROID_HOME/platforms" | tr '\n' ' ')"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
