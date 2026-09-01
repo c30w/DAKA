@@ -1157,43 +1157,55 @@ private fun SwipeableHabitCard(
         enableDismissFromEndToStart = true,
         modifier = modifier,
         backgroundContent = {
-            // 背景只在该滑动态被**激活**（当前值非 Settled）时才渲染动作文字。
-            // 用 currentValue 而不是 dismissDirection：后者在回弹/返回后仍记忆
-            // 最近一次方向，会导致左滑编辑后「编辑」字样残留在右侧勾选框位置
-            // （V4.6 修）。Settled 时给空白，卡片归位后背景必然干净。
-            if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            MaterialTheme.colorScheme.secondaryContainer,
-                            RoundedCornerShape(16.dp)
+            // 背景文字用 dismissDirection 而不是 currentValue 驱动：
+            // currentValue 只在滑动「完全越过阈值并释放」时才切换，且本卡一旦
+            // 触发动作就立刻 snapTo 弹回 Settled——文字几乎一闪而过，用户根本
+            // 看不到（V4.8 修）。dismissDirection 是**实时 offset** 驱动：
+            // 手指一动背景就露出「编辑 / 置顶」提示，一滑就能看见。
+            //
+            // 早期 material3 的 dismissDirection 记忆 targetValue 会残留方向，
+            // 旧代码因此改用了 currentValue（V4.6）。但 material3 1.4.0 的
+            // dismissDirection 改为基于实时 offset 计算（offset==0 → Settled），
+            // snapTo 归位后立即清空，无残留，可以放心用。
+            when (dismissState.dismissDirection) {
+                SwipeToDismissBoxValue.EndToStart -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                MaterialTheme.colorScheme.secondaryContainer,
+                                RoundedCornerShape(16.dp)
+                            )
+                            .padding(horizontal = 24.dp),
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
+                        Text(
+                            text = stringResource(R.string.home_swipe_edit),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                        .padding(horizontal = 24.dp),
-                    contentAlignment = Alignment.CenterEnd
-                ) {
-                    Text(
-                        text = stringResource(R.string.home_swipe_edit),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    }
                 }
-            } else if (dismissState.currentValue == SwipeToDismissBoxValue.StartToEnd) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            RoundedCornerShape(16.dp)
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer,
+                                RoundedCornerShape(16.dp)
+                            )
+                            .padding(horizontal = 24.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = if (habit.pinned) stringResource(R.string.home_swipe_unpin) else stringResource(R.string.home_swipe_pin),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                        .padding(horizontal = 24.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Text(
-                        text = if (habit.pinned) stringResource(R.string.home_swipe_unpin) else stringResource(R.string.home_swipe_pin),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    }
+                }
+                SwipeToDismissBoxValue.Settled -> {
+                    // offset == 0：卡片没在滑动也没在回弹，背景留白
                 }
             }
         }
