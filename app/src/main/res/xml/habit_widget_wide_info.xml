@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 1x4 小组件元数据：横向一整条。
+     targetCellWidth = 4（约 250dp）、targetCellHeight = 1（约 60dp）。
+     resizeMode = 允许横向调整，方便用户手动改宽度。 -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="60dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="1"
+    android:maxResizeWidth="450dp"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/habit_widget_placeholder_wide"
+    android:resizeMode="horizontal"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_description_wide" />

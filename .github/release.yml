@@ -1,0 +1,19 @@
+changelog:
+  categories:
+    - title: 新功能
+      labels:
+        - feature
+        - 新功能
+    - title: 问题修复
+      labels:
+        - bug
+        - fix
+        - 修复
+    - title: 工程 / 文档
+      labels:
+        - chore
+        - docs
+        - 文档
+    - title: 其他
+      labels:
+        - other

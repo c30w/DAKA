@@ -1,0 +1,85 @@
+[versions]
+agp = "9.3.2"
+coreKtx = "1.19.0"
+junit = "4.13.2"
+junitVersion = "1.1.5"
+espressoCore = "3.5.1"
+# M4 升级：2.6.1 太旧，和 lifecycle-viewmodel-compose 2.11.0 混用会踩 Class 冲突
+lifecycleRuntimeKtx = "2.11.0"
+# lifecycle 系列统一版本（runtime-compose / viewmodel-compose）
+lifecycle = "2.11.0"
+# M4 升级：1.8.0 → 1.13.0
+activityCompose = "1.13.0"
+# M5 新增：页面导航
+navigation = "2.10.0"
+kotlin = "2.2.10"
+composeBom = "2026.02.01"
+
+# Room 2.8.4 是当前最新稳定版（2026-08-29 实测阿里云 google 源有货，2.9.0 尚不存在）
+room = "2.8.4"
+# KSP 版本必须和 Kotlin 版本严格对应：Kotlin 2.2.10 → KSP 2.2.10-2.0.2
+# 注意 KSP 不在 Google 源上，在 Maven Central（阿里云 public 源代理了它）
+ksp = "2.2.10-2.0.2"
+
+# V2 桌面小组件：Jetpack Glance（用 Compose 的写法写 AppWidget）
+glance = "1.2.0"
+
+# V2 提醒：存「提醒开关 / 提醒时间」这类少量设置项。
+# 为什么不用 SharedPreferences？它是同步 API，在主线程读写会卡顿，
+# 而且没有错误处理和类型安全。DataStore 是官方指定的替代者（基于协程 + Flow）。
+datastore = "1.2.1"
+
+# V2 备份功能：把数据库导出成 JSON。
+# 注意 serialization **插件**版本必须和 Kotlin 完全一致（2.2.10），
+# 但 **库**（kotlinx-serialization-json）版本是独立的，用最新稳定版即可。
+serialization = "1.11.0"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+# M4 新增：让 Composable 能拿到 ViewModel、能用 collectAsStateWithLifecycle
+androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
+# M5 新增：Navigation Compose
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
+androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
+androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+# 图标库。注意**不写 version** —— 版本由 Compose BOM 统一管理，这是 BOM 的核心用法
+androidx-compose-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core" }
+# V3 新增：完整图标集。core 里只有约 100 个最常用的图标，
+# 日历页要用的 CalendarMonth、ChevronLeft/Right 都不在里面。
+# ⚠️ 代价是它会把全套图标资源带进 APK（约 +10MB）。自用 App 无所谓；
+# 真要控制体积，把用到的图标**自己画成 ImageVector 粘进项目**是最干净的做法。
+androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
+
+# Room 三件套：runtime（运行时）+ ktx（协程支持）+ compiler（注解处理器，走 KSP 而不是直接 implementation）
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+
+# V2 备份：JSON 序列化
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
+
+# V2 提醒：轻量键值存储
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+
+# V2 桌面小组件
+androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
+androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

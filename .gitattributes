@@ -1,0 +1,25 @@
+# 统一行尾：文本文件以 LF 入库，checkout 时按平台自动处理
+* text=auto eol=lf
+
+# 源码/配置强制 LF
+*.kt text eol=lf
+*.kts text eol=lf
+*.gradle text eol=lf
+*.properties text eol=lf
+*.xml text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.keep text eol=lf
+
+# Windows 批处理需要 CRLF 才能正常运行
+*.bat text eol=crlf
+
+# 二进制资源：不碰行尾
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.wav binary
+*.keystore binary
+*.jks binary

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DAKA 应用图标 · 背景层
+  横向三段渐变：薄荷绿 → 中绿 → 深绿，呼应概念预览图。
+  shape + gradient 全版本支持，vector 原生渐变在 Android 6 前不兼容。
+  自适应图标背景下层；前景由 ic_launcher_foreground.xml 提供。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:type="linear"
+        android:startX="0"
+        android:startY="0"
+        android:endX="108"
+        android:endY="0"
+        android:startColor="#34E0A8"
+        android:centerColor="#18C48E"
+        android:endColor="#0C9664" />
+</shape>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DAKA 应用图标 · 前景层
+  整体缩小到约 80%（相对中心 54,54 缩放 0.8），让图标更内敛精致：
+  1. 主体白色对勾（细 stroke，居中靠上）
+  2. 右下橙色圆 + 白色对勾（打卡确认点）
+  3. 右上白色小星（点缀，紧贴主对勾右上头）
+  坐标视图 108x108；所有元素收在中心安全区（半径 33 圆）内。
+  同时作为 Android 13+ monochrome 主题图标源，主体元素皆为白色。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 主对勾：白色，strokeWidth 8.8（原11×0.8），圆头圆角 -->
+    <path
+        android:pathData="M34.8,60.4 L47.6,73.2 L74.8,39.6"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- 橙点底圆：实心橙，圆心71.6,71.6，半径12（原15×0.8） -->
+    <path
+        android:pathData="M71.6,71.6 m-12,0 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0"
+        android:fillColor="#FF8A3D" />
+
+    <!-- 橙点上的白色对勾：stroke 3.6（原4.5×0.8） -->
+    <path
+        android:pathData="M65.2,71.6 L69.2,76.4 L78,66"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- 右上白色小星：中心(71.6,28.4)，相对偏移×0.8 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M71.6,28.4 l1.12,2.88 3.04,0.144 -2.36,1.936 0.8,2.96 -2.6,-1.584 -2.6,1.584 0.8,-2.96 -2.36,-1.936 3.04,-0.144 Z" />
+</vector>

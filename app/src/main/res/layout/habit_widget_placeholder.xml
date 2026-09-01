@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 小组件刚添加、还没渲染出内容时显示的占位图。
+     Glance 渲染完成后会替换成真正的 RemoteViews。
+     用一个简单的纯色背景，避免用户看到黑屏。 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1E1E2E"
+    android:padding="12dp">
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="打卡"
+        android:textColor="#ABB2BF"
+        android:textSize="14sp" />
+</FrameLayout>

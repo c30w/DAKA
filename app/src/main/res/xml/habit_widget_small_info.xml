@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 1x1 小组件元数据：一个格子大小，极简只放一个数字。
+     resizeMode = 不允许调整（就一格，调了没意义）。 -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="60dp"
+    android:minHeight="60dp"
+    android:targetCellWidth="1"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/habit_widget_placeholder_small"
+    android:resizeMode="none"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_description_small" />

@@ -1,0 +1,37 @@
+# ---- 构建产物 ----
+*.apk
+*.aar
+*.aab
+*.dex
+*.class
+bin/
+gen/
+out/
+release/
+
+# ---- Gradle ----
+.gradle/
+/build
+/*/build/
+build/
+
+# ---- 本地配置（SDK 路径、签名等，绝不提交） ----
+local.properties
+
+# ---- IDE / 操作系统 ----
+*.iml
+.idea/
+.DS_Store
+captures/
+.externalNativeBuild
+.cxx
+
+# ---- 签名密钥（绝不可提交） ----
+*.keystore
+*.jks
+
+# ---- Kotlin / KSP / Compose 构建缓存 ----
+.kotlin/
+
+# ---- NDK ----
+.cxx/
