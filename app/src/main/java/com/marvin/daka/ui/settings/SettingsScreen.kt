@@ -87,6 +87,7 @@ import com.marvin.daka.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import org.json.JSONObject
 import java.time.Instant
 import java.time.ZoneId
@@ -281,10 +282,20 @@ fun SettingsScreen(
     var latestVersion by remember { mutableStateOf<String?>(null) }
     var updateUrl by remember { mutableStateOf<String?>(null) }
 
-    /** 拉 GitHub 最新 Release 并比较版本号。失败就当「无更新」，不让红点误报。 */
+    /**
+     * 拉 GitHub 最新 Release 并比较版本号。失败就当「无更新」，不让红点误报。
+     * 1 小时内且有过成功结果 → 直接用 DataStore 缓存，避免频繁打 GitHub 无鉴权接口
+     * （60 次/小时/IP 限流）。成功才写缓存；失败则回退到旧缓存（若没有就当无更新）。
+     */
     suspend fun checkUpdate() {
         checkingUpdate = true
         try {
+            val cached = withContext(Dispatchers.IO) { appPrefs.updateCheckCache.first() }
+            if (cached != null && System.currentTimeMillis() - cached.at < 60 * 60 * 1000L) {
+                latestVersion = cached.version
+                updateUrl = cached.url
+                return
+            }
             val result = withContext(Dispatchers.IO) {
                 val conn = URL("https://api.github.com/repos/c30w/DAKA/releases/latest")
                     .openConnection() as java.net.HttpURLConnection
@@ -303,9 +314,20 @@ fun SettingsScreen(
             }
             latestVersion = result.first
             updateUrl = result.second
+            // 成功才写缓存（失败不覆盖旧缓存，也不缓存失败）
+            if (result.second.isNotEmpty()) {
+                appPrefs.setUpdateCheckCache(result.first, result.second)
+            }
         } catch (_: Exception) {
-            latestVersion = null
-            updateUrl = null
+            // 失败：有旧缓存就继续用旧的；没有就当「无更新」，不让红点误报
+            val cached = withContext(Dispatchers.IO) { appPrefs.updateCheckCache.first() }
+            if (cached != null) {
+                latestVersion = cached.version
+                updateUrl = cached.url
+            } else {
+                latestVersion = null
+                updateUrl = null
+            }
         } finally {
             checkingUpdate = false
         }

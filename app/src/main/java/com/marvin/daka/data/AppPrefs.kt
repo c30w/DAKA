@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -48,6 +49,13 @@ class AppPrefs(private val context: Context) {
          * 取值常量见 ui.theme.ThemeMode，这里只存字符串，data 层不认识界面概念。
          */
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        /**
+         * 检查更新结果缓存：上次成功拉到的版本号 / 发布页 URL / 时间戳(epoch ms)。
+         * 1 小时内复用，避免频繁打 GitHub 无鉴权接口（60 次/小时/IP 限流）。
+         */
+        val UPDATE_CHECK_VERSION = stringPreferencesKey("update_check_version")
+        val UPDATE_CHECK_URL = stringPreferencesKey("update_check_url")
+        val UPDATE_CHECK_AT = longPreferencesKey("update_check_at")
     }
 
     /** 用户自定义的分类顺序。空列表 = 没自定义过，按内置顺序展示 */
@@ -100,6 +108,28 @@ class AppPrefs(private val context: Context) {
     suspend fun setThemeMode(mode: String) {
         context.appDataStore.edit {
             it[Keys.THEME_MODE] = mode
+        }
+    }
+
+    /** 检查更新结果缓存（版本号 + 发布页 URL + 时间戳）。null = 还没成功检查过 */
+    data class UpdateCheckCache(val version: String, val url: String, val at: Long)
+
+    val updateCheckCache: Flow<UpdateCheckCache?> = context.appDataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { prefs ->
+            val at = prefs[Keys.UPDATE_CHECK_AT] ?: 0L
+            val version = prefs[Keys.UPDATE_CHECK_VERSION]
+            val url = prefs[Keys.UPDATE_CHECK_URL]
+            if (version != null && url != null && at > 0L) {
+                UpdateCheckCache(version, url, at)
+            } else null
+        }
+
+    suspend fun setUpdateCheckCache(version: String, url: String) {
+        context.appDataStore.edit {
+            it[Keys.UPDATE_CHECK_VERSION] = version
+            it[Keys.UPDATE_CHECK_URL] = url
+            it[Keys.UPDATE_CHECK_AT] = System.currentTimeMillis()
         }
     }
 }
