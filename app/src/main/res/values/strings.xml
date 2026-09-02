@@ -268,4 +268,11 @@
     <string name="stats_no_data">这个范围还没有数据</string>
     <string name="nav_stats">统计</string>
     <string name="nav_home">打卡</string>
+
+    <!-- 检查更新 -->
+    <string name="settings_check_update">检查更新</string>
+    <string name="settings_update_checking">正在检查新版本…</string>
+    <string name="settings_update_available">发现新版本 %1$s，点击前往</string>
+    <string name="settings_update_latest">已是最新版本</string>
+    <string name="settings_update_fail">检查失败，点击重试</string>
 </resources>

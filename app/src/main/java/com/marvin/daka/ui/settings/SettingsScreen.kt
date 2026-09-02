@@ -72,6 +72,7 @@ import com.marvin.daka.audio.SoundEffectPlayer
 import com.marvin.daka.data.AppPrefs
 import com.marvin.daka.data.LanguagePrefs
 import com.marvin.daka.R
+import com.marvin.daka.BuildConfig
 import com.marvin.daka.model.Habit
 import com.marvin.daka.model.ReminderConfig
 import com.marvin.daka.reminder.NotificationHelper
@@ -84,9 +85,13 @@ import com.marvin.daka.ui.reminder.ReminderEditorDialog
 import com.marvin.daka.ui.theme.DAKATheme
 import com.marvin.daka.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.time.Instant
 import java.time.ZoneId
 import java.time.LocalDate
+import java.net.URL
 
 /**
  * 设置页（V2 建立，V3 改版）。
@@ -268,6 +273,47 @@ fun SettingsScreen(
     )
     var showThemeDialog by remember { mutableStateOf(false) }
 
+    // ---------------- 检查更新 ----------------
+    // 本应用无后端，版本发布在 GitHub Release。进设置页自动拉一次最新 Release，
+    // 拿到 tag_name 和当前版本号比较；有新版本就显示红点，点一下打开发布页，
+    // 是否更新完全由用户自己决定（不弹窗、不自动下载）。
+    var checkingUpdate by remember { mutableStateOf(false) }
+    var latestVersion by remember { mutableStateOf<String?>(null) }
+    var updateUrl by remember { mutableStateOf<String?>(null) }
+
+    /** 拉 GitHub 最新 Release 并比较版本号。失败就当「无更新」，不让红点误报。 */
+    suspend fun checkUpdate() {
+        checkingUpdate = true
+        try {
+            val result = withContext(Dispatchers.IO) {
+                val conn = URL("https://api.github.com/repos/c30w/DAKA/releases/latest")
+                    .openConnection() as java.net.HttpURLConnection
+                try {
+                    conn.requestMethod = "GET"
+                    conn.setRequestProperty("Accept", "application/vnd.github+json")
+                    conn.connectTimeout = 8000
+                    conn.readTimeout = 8000
+                    val text = conn.inputStream.bufferedReader().use { it.readText() }
+                    val json = JSONObject(text)
+                    val tag = json.optString("tag_name", "")
+                    (tag.removePrefix("v")) to json.optString("html_url", "")
+                } finally {
+                    conn.disconnect()
+                }
+            }
+            latestVersion = result.first
+            updateUrl = result.second
+        } catch (_: Exception) {
+            latestVersion = null
+            updateUrl = null
+        } finally {
+            checkingUpdate = false
+        }
+    }
+
+    // 进设置页自动查一次（静默，无弹窗）
+    LaunchedEffect(Unit) { checkUpdate() }
+
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -406,6 +452,22 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
             SectionTitle(stringResource(R.string.settings_about))
+            // 检查更新：常驻显示当前版本号；有新版本红点提醒，点一下打开发布页
+            val updateAvailable = latestVersion?.let { isNewer(it, BuildConfig.VERSION_NAME) } ?: false
+            UpdateItem(
+                currentVersion = BuildConfig.VERSION_NAME,
+                latestVersion = latestVersion,
+                checking = checkingUpdate,
+                updateAvailable = updateAvailable,
+                onClick = {
+                    if (updateAvailable && updateUrl != null) {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(updateUrl)))
+                    } else {
+                        scope.launch { checkUpdate() }
+                    }
+                }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = stringResource(R.string.settings_about_desc),
                 style = MaterialTheme.typography.bodySmall,
@@ -914,6 +976,82 @@ private fun SettingsItem(
             )
         }
     }
+}
+
+/**
+ * 检查更新项：常驻显示当前版本号；有新版本时右侧出现红点、副标题提示可前往。
+ * 点一下：有更新→打开发布页；无更新→重新检查。全程不弹窗、不自动下载。
+ */
+@Composable
+private fun UpdateItem(
+    currentVersion: String,
+    latestVersion: String?,
+    checking: Boolean,
+    updateAvailable: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_check_update),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                val subtitle = when {
+                    checking -> stringResource(R.string.settings_update_checking)
+                    updateAvailable -> stringResource(R.string.settings_update_available, latestVersion ?: "")
+                    latestVersion != null -> stringResource(R.string.settings_update_latest)
+                    else -> stringResource(R.string.settings_update_fail)
+                }
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = "v$currentVersion",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (updateAvailable) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.error)
+                )
+            }
+        }
+    }
+}
+
+/** 远程版本号是否比当前新（按 . 分段逐位比整数）。"1.3.1" vs "1.3.2" → true */
+private fun isNewer(remote: String, current: String): Boolean {
+    val r = remote.split('.').mapNotNull { it.toIntOrNull() }
+    val c = current.split('.').mapNotNull { it.toIntOrNull() }
+    val n = if (r.size > c.size) r.size else c.size
+    for (i in 0 until n) {
+        val rv = r.getOrElse(i) { 0 }
+        val cv = c.getOrElse(i) { 0 }
+        if (rv != cv) return rv > cv
+    }
+    return false
 }
 
 @Preview(showBackground = true, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)

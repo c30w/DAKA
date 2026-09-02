@@ -258,4 +258,11 @@
     <string name="stats_no_data">No data in this range yet</string>
     <string name="nav_stats">Stats</string>
     <string name="nav_home">Habits</string>
+
+    <!-- Check for updates -->
+    <string name="settings_check_update">Check for updates</string>
+    <string name="settings_update_checking">Checking for updates…</string>
+    <string name="settings_update_available">New version %1$s available, tap to open</string>
+    <string name="settings_update_latest">Up to date</string>
+    <string name="settings_update_fail">Check failed, tap to retry</string>
 </resources>
