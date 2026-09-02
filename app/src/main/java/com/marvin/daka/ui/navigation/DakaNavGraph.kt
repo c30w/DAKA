@@ -1,6 +1,8 @@
 package com.marvin.daka.ui.navigation
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,8 +25,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.marvin.daka.R
@@ -105,11 +107,36 @@ fun DakaNavGraph(
     val currentRoute = navBackStackEntry?.destination?.route
     val showBottomBar = currentRoute in setOf(ROUTE_HOME, ROUTE_STATS)
 
-    Box(modifier = modifier) {
-        NavHost(
-            navController = navController,
-            startDestination = ROUTE_HOME
-        ) {
+    Box(modifier = modifier.fillMaxSize()) {
+        // V1.3 底部导航：用 Scaffold 的 bottomBar 槽位，而不是在 Box 里用
+        // align(BottomCenter) 浮一层——后者**不预留空间**，会把底层内容（首页
+        // 右下角「+」悬浮按钮、统计页底部排行）盖住，表现为「已有的功能看不见」。
+        // 走 Scaffold 槽位，内容会自动被 innerPadding 顶到导航栏上方，FAB 也
+        // 会自然浮在导航栏之上，两者都不被遮挡。
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            bottomBar = {
+                if (showBottomBar) {
+                    DakaBottomBar(
+                        currentRoute = currentRoute,
+                        onSelect = { route ->
+                            navController.navigate(route) {
+                                popUpTo(ROUTE_HOME) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    )
+                }
+            }
+        ) { innerPadding ->
+            NavHost(
+                navController = navController,
+                startDestination = ROUTE_HOME,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
         composable(ROUTE_HOME) {
             HomeScreen(
                 viewModel = vm,
@@ -211,20 +238,9 @@ fun DakaNavGraph(
         }
         }
 
-        // V1.3 底部导航：切主页用 popUpTo + launchSingleTop，
-        // 避免反复点击在返回栈里堆出一串重复的页面（点五次统计就得按五次返回）。
-        if (showBottomBar) {
-            DakaBottomBar(
-                currentRoute = currentRoute,
-                onSelect = { route ->
-                    navController.navigate(route) {
-                        popUpTo(ROUTE_HOME) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                modifier = Modifier.align(Alignment.BottomCenter)
-            )
+        // 底部导航栏已搬到上面 Scaffold 的 bottomBar 槽位（见文件头注释）：
+        // 它不再浮在内容之上，内容被 innerPadding 顶到导航栏上方，已有的
+        // 「+」悬浮按钮和统计页底部排行都不会被盖住。这里只闭合 Scaffold 内容 lambda。
         }
 
         // 新手引导盖在最上层
