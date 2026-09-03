@@ -93,44 +93,6 @@
             </intent-filter>
         </receiver>
 
-        <!--
-          桌面小组件。Glance 的 Receiver 会自动处理 AppWidget 绑定。
-          meta-data 的 appwidget provider 告诉系统去读 habit_widget_info.xml 拿尺寸信息。
-        -->
-        <receiver
-            android:name=".widget.HabitWidgetReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/habit_widget_info" />
-        </receiver>
-
-        <!-- V4.7：新增的 1x4 小组件。 -->
-        <receiver
-            android:name=".widget.HabitWidgetWideReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/habit_widget_wide_info" />
-        </receiver>
-
-        <!-- 4x3 小组件：Google Keep 清单大号版，能放更多行。 -->
-        <receiver
-            android:name=".widget.HabitWidgetBigReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/habit_widget_big_info" />
-        </receiver>
     </application>
 
 </manifest>

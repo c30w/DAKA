@@ -1,9 +1,6 @@
 <resources>
     <string name="app_name">DAKA</string>
 
-    <string name="widget_description">Quick glance at today\'s check-in progress</string>
-    <string name="widget_description_big">Today\'s habit list, check off right from the home screen</string>
-    <string name="widget_description_wide">Today\'s progress and each habit\'s status</string>
 
     <string name="common_back">Back</string>
     <string name="common_confirm">OK</string>
@@ -200,8 +197,6 @@
     <string name="onboarding_step2_body">Swipe left on a card = edit; swipe right = pin to top. Long-press to drag and reorder.</string>
     <string name="onboarding_step3_title">Add your first habit</string>
     <string name="onboarding_step3_body">Tap + at the bottom right, pick an icon and color, and set a daily reminder if you like.</string>
-    <string name="onboarding_step4_title">Home screen widgets</string>
-    <string name="onboarding_step4_body">Long-press your home screen to add a DAKA widget and check off habits right there, no need to open the app.</string>
     <string name="onboarding_dont_show">Don\'t show again</string>
     <string name="onboarding_next">Next</string>
     <string name="onboarding_skip">Skip</string>

@@ -42,8 +42,8 @@ android {
         applicationId = "com.marvin.daka"
         minSdk = 26
         targetSdk = 37
-        versionCode = 13
-        versionName = "1.3.5"
+        versionCode = 14
+        versionName = "1.3.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -103,10 +103,6 @@ dependencies {
 
     // ---- V2：提醒设置项（开关 / 时间）的本地存储 ----
     implementation(libs.androidx.datastore.preferences)
-
-    // ---- V2：桌面小组件（Glance = 用 Compose 写法写 AppWidget）----
-    implementation(libs.androidx.glance.appwidget)
-    implementation(libs.androidx.glance.material3)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

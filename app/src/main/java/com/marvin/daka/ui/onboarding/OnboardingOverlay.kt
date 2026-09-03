@@ -37,7 +37,7 @@ import com.marvin.daka.R
 /**
  * 新手引导（V1.1 新增）。
  *
- * 四步横滑式引导：欢迎 → 左右滑操作 → 添加习惯 → 桌面小组件。
+ * 三步横滑式引导：欢迎 → 左右滑操作 → 添加习惯。
  * 最后一步提供「不再显示」勾选 + 「关闭」按钮：
  *   - 勾选了「不再显示」再点关闭 → 以后不再弹出（onDismiss 传 true）
  *   - 没勾选就关闭 → 只关掉这一次，下次启动还会弹出（onDismiss 传 false）
@@ -55,7 +55,6 @@ fun OnboardingOverlay(
         Step("👋", R.string.onboarding_step1_title, R.string.onboarding_step1_body),
         Step("👉", R.string.onboarding_step2_title, R.string.onboarding_step2_body),
         Step("➕", R.string.onboarding_step3_title, R.string.onboarding_step3_body),
-        Step("📱", R.string.onboarding_step4_title, R.string.onboarding_step4_body)
     )
     val lastIndex = steps.lastIndex
 

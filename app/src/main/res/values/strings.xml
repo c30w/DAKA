@@ -2,10 +2,6 @@
     <!-- 应用名（一直叫 DAKA） -->
     <string name="app_name">DAKA</string>
 
-    <!-- 小组件描述 -->
-    <string name="widget_description">快速查看今日打卡进度</string>
-    <string name="widget_description_big">今日打卡清单，桌面直接勾选</string>
-    <string name="widget_description_wide">今日进度与各习惯完成状态</string>
 
     <!-- 通用 -->
     <string name="common_back">返回</string>
@@ -210,8 +206,6 @@
     <string name="onboarding_step2_body">左滑卡片 = 编辑；右滑卡片 = 置顶。长按卡片可以拖动排序。</string>
     <string name="onboarding_step3_title">添加你的第一个习惯</string>
     <string name="onboarding_step3_body">点右下角的 +，挑个图标和颜色，还能设置每天提醒。</string>
-    <string name="onboarding_step4_title">桌面小组件</string>
-    <string name="onboarding_step4_body">长按桌面添加 DAKA 小组件，桌面直接勾选，不用打开 App。</string>
     <string name="onboarding_dont_show">不再显示</string>
     <string name="onboarding_next">下一步</string>
     <string name="onboarding_skip">跳过</string>

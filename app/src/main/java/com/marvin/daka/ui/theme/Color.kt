@@ -107,28 +107,3 @@ val OnErrorDark = Color(0xFF690005)
 val ErrorContainerDark = Color(0xFF93000A)
 val OnErrorContainerDark = Color(0xFFFFDAD6)
 
-// ------------------------------------------------------------------
-// 桌面小组件的中性色（Glance 用，必须写死 ARGB）
-//
-// Glance 跑在别的进程里，拿不到 App 的 ColorScheme，颜色只能硬编码。
-// 小组件一直是「深色卡片」造型（放在任何壁纸上都清晰），
-// 所以这里只取深色那一档，跟 App 的深色底座保持同一族，视觉上是一家。
-// ------------------------------------------------------------------
-object WidgetColors {
-    /** 卡片底 */
-    val Background = Color(0xFF172322)
-    /** 卡片内的次级块（进度条轨道、分隔块） */
-    val Surface = Color(0xFF253331)
-    /** 主文字 */
-    val Text = Color(0xFFE0E7E6)
-    /** 次要文字 */
-    val TextDim = Color(0xFFBFCBC9)
-    /** 弱化文字（已完成项的划掉态） */
-    val TextMuted = Color(0xFF899693)
-    /** 强调：完成态、进度满 */
-    val Accent = Color(0xFF6FD8C6)
-    /** 强调 2：未完成、待处理（暖橙，跟青绿互补，一眼分得开） */
-    val AccentWarm = Color(0xFFFFB74D)
-    /** 纯白（勾选圈里的对勾） */
-    val OnAccent = Color(0xFFFFFFFF)
-}

@@ -29,7 +29,6 @@ import com.marvin.daka.ui.stats.buildHabitStats
 import com.marvin.daka.util.calcStreak
 import com.marvin.daka.util.last7Days
 import com.marvin.daka.util.todayString
-import com.marvin.daka.widget.refreshHabitWidgets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -262,8 +261,6 @@ class HabitViewModel(
             } else {
                 recordDao.insert(HabitRecord(habitId = habitId, date = todayString()))
             }
-            // 数据变了，立刻推刷新桌面三种小组件（不依赖界面是否在前台）
-            refreshHabitWidgets(appContext)
         }
     }
 
@@ -289,8 +286,6 @@ class HabitViewModel(
             targets.forEach { habit ->
                 recordDao.insert(HabitRecord(habitId = habit.id, date = today))
             }
-            // 数据变了，立刻推刷新桌面三种小组件（不依赖界面是否在前台）
-            refreshHabitWidgets(appContext)
 
             withContext(Dispatchers.Main) {
                 onResult(targets.size, active.size)
@@ -311,7 +306,6 @@ class HabitViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             habitDao.archive(habitId)
             ReminderScheduler.cancelHabit(appContext, habitId)
-            refreshHabitWidgets(appContext)
         }
     }
 
@@ -351,7 +345,6 @@ class HabitViewModel(
             )
             val newId = ids.firstOrNull() ?: return@launch
             habitDao.getById(newId)?.let { applyReminder(it) }
-            refreshHabitWidgets(appContext)
         }
     }
 
@@ -434,7 +427,6 @@ class HabitViewModel(
                 val newId = ids.firstOrNull() ?: return@forEach
                 habitDao.getById(newId)?.let { applyReminder(it) }
             }
-            refreshHabitWidgets(appContext)
         }
         return drafts.size
     }
@@ -471,7 +463,6 @@ class HabitViewModel(
                 ).withReminder(reminder, resetFired = true)
             )
             habitDao.getById(habitId)?.let { applyReminder(it) }
-            refreshHabitWidgets(appContext)
         }
     }
 
@@ -492,7 +483,6 @@ class HabitViewModel(
             } else {
                 pinToCategoryTop(habit)
             }
-            refreshHabitWidgets(appContext)
         }
     }
 
@@ -507,7 +497,6 @@ class HabitViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val habit = habitDao.getById(habitId) ?: return@launch
             if (!habit.pinned) pinToCategoryTop(habit)
-            refreshHabitWidgets(appContext)
         }
     }
 
@@ -538,7 +527,6 @@ class HabitViewModel(
 
             members.apply { add(target, removeAt(index)) }
             assignSectionOrder(members)
-            refreshHabitWidgets(appContext)
         }
     }
 
@@ -565,7 +553,6 @@ class HabitViewModel(
                     habitDao.setSortOrder(habit.id, index)
                 }
             }
-            refreshHabitWidgets(appContext)
         }
     }
 
@@ -609,7 +596,6 @@ class HabitViewModel(
                 firedCount = 0
             )
             habitDao.getById(habitId)?.let { applyReminder(it) }
-            refreshHabitWidgets(appContext)
         }
     }
 
@@ -688,7 +674,6 @@ class HabitViewModel(
         // 恢复进来的习惯可能带着提醒设置，全部重排一遍
         ReminderScheduler.rescheduleAll(appContext)
         // 习惯/记录都变了，刷新桌面小组件
-        refreshHabitWidgets(appContext)
 
         data.habits.size
     }
