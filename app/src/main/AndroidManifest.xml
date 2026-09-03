@@ -33,14 +33,6 @@
     <!-- 检查更新：拉 GitHub Release 接口需要联网（本应用无后端，版本发布在 GitHub） -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!--
-      V1.3.4：MIUI / 部分国产 ROM 电池优化会 aggressively 杀 DAKA 后台进程，
-      导致 App 里修改数据后，桌面小组件要等几秒甚至更久才刷新。
-      这个权限不是让 App 自己绕过优化，而是用来弹系统对话框，请用户把 DAKA
-      加入电池优化白名单，保证小组件刷新广播能及时送达。
-    -->
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-
     <application
         android:name=".DakaApplication"
         android:allowBackup="true"

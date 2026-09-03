@@ -10,8 +10,6 @@ import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.cornerRadius
-import androidx.glance.appwidget.lazy.LazyColumn
-import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
@@ -29,7 +27,6 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.marvin.daka.ui.theme.WidgetColors
 import com.marvin.daka.MainActivity
-import kotlinx.coroutines.runBlocking
 
 /**
  * 桌面小组件：4×3，Google Keep 清单风格的「大号版」。
@@ -47,7 +44,7 @@ import kotlinx.coroutines.runBlocking
 class HabitWidgetBig : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val list = runBlocking { loadTodayHabits(context) }
+        val list = loadTodayHabits(context)
         val done = list.count { it.second }
         val total = list.size
 
@@ -103,16 +100,30 @@ class HabitWidgetBig : GlanceAppWidget() {
                             .clickable(openAppAction)
                     )
                 } else {
-                    // LazyColumn 展示**全部**习惯：超出 4x3 高度会滚动，且没有 Glance 的 10 子节点上限，
-                    // 习惯再多也不会像普通 Column 那样被截断或抛异常。每行自带上下 padding 当间距。
-                    LazyColumn(modifier = GlanceModifier.fillMaxWidth()) {
-                        items(list) { (habit, isDone) ->
+                    // 固定列表展示习惯（最多 6 行 + 余量提示），和 Google Keep 清单小组件一样不滚动：
+                    // Keep 用原生 RemoteViews 列表、点一下即时翻状态；Glance 的 LazyColumn 内部
+                    // item 的点击经常不生效，所以这里用普通 Column（6 行远低于 Glance 10 子节点上限）。
+                    // 每行自带上下 padding 当间距；超出部分进 App 看。
+                    Column(modifier = GlanceModifier.fillMaxWidth()) {
+                        list.take(6).forEach { (habit, isDone) ->
                             HabitCheckRow(
                                 habit = habit,
                                 isDone = isDone,
                                 sizeDp = 26,
                                 nameMax = 12,
                                 vPadding = 5
+                            )
+                        }
+                        if (list.size > 6) {
+                            Text(
+                                text = "还有 ${list.size - 6} 项，点顶部打开 App",
+                                style = TextStyle(
+                                    fontSize = 12.sp,
+                                    color = ColorProvider(WidgetColors.TextMuted)
+                                ),
+                                modifier = GlanceModifier
+                                    .fillMaxWidth()
+                                    .clickable(openAppAction)
                             )
                         }
                     }

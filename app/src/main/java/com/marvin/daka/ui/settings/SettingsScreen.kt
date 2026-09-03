@@ -8,7 +8,6 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -433,50 +432,6 @@ fun SettingsScreen(
                 enabled = true,
                 onClick = { showThemeDialog = true }
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            // V1.3.4：电池优化豁免入口。MIUI 等 ROM 会 aggressive 杀后台，
-            // 导致小组件刷新广播延迟；引导用户把 DAKA 加入白名单。
-            val isBatteryIgnored = isIgnoringBatteryOptimizations(context)
-            Surface(
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.settings_battery_opt),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = stringResource(
-                                if (isBatteryIgnored) R.string.settings_battery_opt_desc_allowed
-                                else R.string.settings_battery_opt_desc_restricted
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    TextButton(
-                        enabled = !isBatteryIgnored,
-                        onClick = { requestIgnoreBatteryOptimizations(context) }
-                    ) {
-                        Text(
-                            text = stringResource(
-                                if (isBatteryIgnored) R.string.settings_battery_opt_btn_allowed
-                                else R.string.settings_battery_opt_btn_request
-                            )
-                        )
-                    }
-                }
-            }
 
             Spacer(modifier = Modifier.height(20.dp))
             HorizontalDivider()
@@ -723,22 +678,6 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
-}
-
-/** 当前是否已被系统豁免电池优化（允许后台运行）。 */
-private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
-    val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return false
-    return pm.isIgnoringBatteryOptimizations(context.packageName)
-}
-
-/** 跳系统对话框，请求把本应用加入电池优化白名单。 */
-private fun requestIgnoreBatteryOptimizations(context: Context) {
-    context.startActivity(
-        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-            data = Uri.parse("package:${context.packageName}")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-    )
 }
 
 /**

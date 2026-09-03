@@ -32,7 +32,6 @@ import androidx.glance.unit.ColorProvider
 import com.marvin.daka.ui.theme.WidgetColors
 import com.marvin.daka.MainActivity
 import com.marvin.daka.model.Habit
-import kotlinx.coroutines.runBlocking
 
 /**
  * 桌面小组件：1×4，横向「快速打卡条」（Google Keep 清单的横向版）。
@@ -47,7 +46,7 @@ import kotlinx.coroutines.runBlocking
 class HabitWidgetWide : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val list = runBlocking { loadTodayHabits(context) }
+        val list = loadTodayHabits(context)
         val done = list.count { it.second }
         val total = list.size
         val ratio = if (total == 0) 0f else done.toFloat() / total
