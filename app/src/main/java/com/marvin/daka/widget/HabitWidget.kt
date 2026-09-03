@@ -293,7 +293,7 @@ internal suspend fun toggleHabitToday(context: Context, habitId: Long) {
     withContext(Dispatchers.IO) {
         val db = DatabaseProvider.get(context)
         val today = todayString()
-        val done = db.habitRecordDao().getByDate(today).any { it.habitId == habitId }
+        val done = db.habitRecordDao().exists(habitId, today)
         if (done) {
             db.habitRecordDao().deleteByDate(habitId, today)
         } else {

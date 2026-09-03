@@ -1,6 +1,7 @@
 package com.marvin.daka
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -24,8 +25,30 @@ import com.marvin.daka.ui.navigation.DakaNavGraph
 import com.marvin.daka.ui.theme.DAKATheme
 import com.marvin.daka.ui.theme.ThemeMode
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+
+/**
+ * 桌面长按快捷方式的 action 常量。
+ *
+ * 值和 res/xml/shortcuts.xml 里每个 <intent> 的 android:action **必须一字不差**，
+ * 两边对不上就是「点了快捷方式只打开首页、什么都不发生」——
+ * 而且没有任何报错，是最难查的那类 bug。
+ */
+object ShortcutActions {
+    /** 新建习惯：直接打开新建页 */
+    const val NEW_HABIT = "com.marvin.daka.action.NEW_HABIT"
+
+    /** 查看统计：直接打开统计页 */
+    const val STATS = "com.marvin.daka.action.STATS"
+
+    /** 一键打卡：今天还没打卡的习惯全部打上卡 */
+    const val CHECK_ALL = "com.marvin.daka.action.CHECK_ALL"
+
+    /** 全部合法 action。用于过滤掉普通启动（android.intent.action.MAIN）等无关 intent */
+    val ALL = setOf(NEW_HABIT, STATS, CHECK_ALL)
+}
 
 /**
  * 整个 App 只有一个 Activity —— Compose 单 Activity 架构的常规做法。
@@ -38,6 +61,18 @@ import java.time.LocalDate
  * 业务逻辑全在 ViewModel 里，界面全在 Composable 里，这里只做「接线」。
  */
 class MainActivity : ComponentActivity() {
+
+    /**
+     * 当前待处理的快捷方式 action（null = 没有）。
+     *
+     * 为什么是 StateFlow 字段而不是 onCreate 里读一次 intent？
+     * 因为 Activity 配了 launchMode="singleTask"：App 已经在后台时点快捷方式，
+     * **不会重新走 onCreate**，只会回调 [onNewIntent]。
+     * 用 StateFlow 把「新的 intent」推给 Compose，界面那边 collect 到就执行，
+     * 冷启动和热启动走同一条路，不用写两套。
+     */
+    private val pendingShortcut = MutableStateFlow<String?>(null)
+
     /**
      * 在 Activity 这一层也套上用户选的语言，保证 Compose 取到的资源是本地化的。
      * Application 层已经套过一次，这里再套一次是标准做法，互不冲突。
@@ -46,10 +81,25 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(LanguagePrefs.applyLocale(newBase))
     }
 
+    /**
+     * singleTask 模式下，App 已在后台时点快捷方式走这里（不走 onCreate）。
+     *
+     * 必须调 setIntent(intent) 把新 intent 记下来，否则后续 getIntent()
+     * 拿到的还是第一次启动那个——很多「快捷方式只有第一次有效」的 bug 就出在这。
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingShortcut.value = intent.action?.takeIf { it in ShortcutActions.ALL }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // 让内容延伸到状态栏和导航栏后面，配合 TopAppBar 做沉浸式
         enableEdgeToEdge()
+
+        // 冷启动：从启动 intent 里取快捷方式 action
+        pendingShortcut.value = intent?.action?.takeIf { it in ShortcutActions.ALL }
 
         // 预加载全部 UI 音效（SoundPool 异步加载，不阻塞启动）
         SoundEffectPlayer.init(this)
@@ -93,8 +143,15 @@ class MainActivity : ComponentActivity() {
                 onDispose { /* 退出时无需还原，系统自己会收 */ }
             }
 
+            val pending by pendingShortcut.collectAsStateWithLifecycle()
+
             DAKATheme(themeMode = themeMode) {
-                DakaNavGraph(factory = factory)
+                DakaNavGraph(
+                    factory = factory,
+                    shortcutAction = pending,
+                    // 消费掉：只执行一次，转屏/重组不会再触发一遍
+                    onConsumeShortcut = { pendingShortcut.value = null }
+                )
             }
         }
     }

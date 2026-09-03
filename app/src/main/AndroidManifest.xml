@@ -48,12 +48,28 @@
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.DAKA"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!--
+              桌面长按图标的快捷方式（新建习惯 / 查看统计 / 一键打卡）。
+
+              ⚠️ meta-data 必须挂在**启动 Activity** 上，挂在 <application> 里不生效——
+              系统会去找声明了 MAIN + LAUNCHER 的那个 Activity 身上有没有这个 meta-data。
+
+              ⚠️ 配套改了 android:launchMode="singleTask"：
+              默认（standard）模式下，App 已在后台时点快捷方式会**再开一个 MainActivity**
+              压在原来的上面；onNewIntent 不触发，Compose 这边也就收不到新的 action。
+              改成 singleTask 后，复用已有实例、走 onNewIntent，快捷方式才能每次都生效。
+            -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <!--

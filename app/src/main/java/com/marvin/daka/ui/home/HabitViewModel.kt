@@ -268,6 +268,37 @@ class HabitViewModel(
     }
 
     /**
+     * 一键打卡：把今天**还没打卡**的习惯一次性全部打上卡。
+     *
+     * 已经打过卡的会跳过——重复插入没有意义（表上有 (habitId, date) 唯一索引，
+     * 插了也会被 IGNORE 掉），而且计数会虚高，提示语变成「已打卡 0 个」才是对的。
+     *
+     * 为什么结果走回调而不是返回一个值？
+     * 写库在 IO 线程异步进行，方法本身立刻返回。要拿到「到底打了几个」，
+     * 只能在写完之后回主线程通知——这是给界面弹 Toast 用的。
+     *
+     * @param onResult (本次新打卡的条数, 未归档习惯总数)
+     */
+    fun checkAllToday(onResult: (checked: Int, total: Int) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val today = todayString()
+            val active = habitDao.getAllActive()
+            val doneIds = recordDao.getByDate(today).map { it.habitId }.toSet()
+            val targets = active.filter { it.id !in doneIds }
+
+            targets.forEach { habit ->
+                recordDao.insert(HabitRecord(habitId = habit.id, date = today))
+            }
+            // 数据变了，立刻推刷新桌面三种小组件（不依赖界面是否在前台）
+            refreshHabitWidgets(appContext)
+
+            withContext(Dispatchers.Main) {
+                onResult(targets.size, active.size)
+            }
+        }
+    }
+
+    /**
      * 删除（归档）一个习惯。
      *
      * 走的是软删除：打上 archivedAt 标记，首页列表立刻不再出现它，
@@ -298,7 +329,8 @@ class HabitViewModel(
         emoji: String,
         colorArgb: Long,
         reminder: ReminderConfig,
-        category: String = HabitCategory.DEFAULT
+        category: String = HabitCategory.DEFAULT,
+        note: String = ""
     ) {
         val cleanName = name.trim()
         if (cleanName.isEmpty()) return
@@ -311,20 +343,10 @@ class HabitViewModel(
                         name = cleanName,
                         emoji = emoji,
                         colorArgb = colorArgb,
-                        reminderEnabled = reminder.enabled,
-                        reminderHour = reminder.hour,
-                        reminderMinute = reminder.minute,
-                        repeatType = reminder.repeatType.code,
-                        repeatInterval = reminder.interval.coerceAtLeast(1),
-                        repeatWeekdays = reminder.weekdays.sorted().joinToString(","),
-                        repeatMonthDays = reminder.monthDays.sorted().joinToString(","),
-                        endType = reminder.endType.code,
-                        repeatTimes = reminder.times,
-                        remindEndDate = reminder.endDate,
-                        remindStartDate = reminder.startDate.ifBlank { todayString() },
                         category = category,
-                        sortOrder = nextOrder
-                    )
+                        sortOrder = nextOrder,
+                        note = note
+                    ).withReminder(reminder)
                 )
             )
             val newId = ids.firstOrNull() ?: return@launch
@@ -402,20 +424,10 @@ class HabitViewModel(
                             name = cleanName,
                             emoji = draft.emoji,
                             colorArgb = draft.colorArgb,
-                            reminderEnabled = draft.reminder.enabled,
-                            reminderHour = draft.reminder.hour,
-                            reminderMinute = draft.reminder.minute,
-                            repeatType = draft.reminder.repeatType.code,
-                            repeatInterval = draft.reminder.interval.coerceAtLeast(1),
-                            repeatWeekdays = draft.reminder.weekdays.sorted().joinToString(","),
-                            repeatMonthDays = draft.reminder.monthDays.sorted().joinToString(","),
-                            endType = draft.reminder.endType.code,
-                            repeatTimes = draft.reminder.times,
-                            remindEndDate = draft.reminder.endDate,
-                            remindStartDate = draft.reminder.startDate.ifBlank { todayString() },
                             category = draft.category,
-                            sortOrder = nextOrder
-                        )
+                            sortOrder = nextOrder,
+                            note = draft.note
+                        ).withReminder(draft.reminder)
                     )
                 )
                 nextOrder++
@@ -440,33 +452,23 @@ class HabitViewModel(
         emoji: String,
         colorArgb: Long,
         category: String,
-        reminder: ReminderConfig
+        reminder: ReminderConfig,
+        note: String = ""
     ) {
         val cleanName = name.trim()
         if (cleanName.isEmpty()) return
 
         viewModelScope.launch(Dispatchers.IO) {
             val current = habitDao.getById(habitId) ?: return@launch
+            // 改了规则，触发计数归零；提醒字段统一走 withReminder 映射
             habitDao.update(
                 current.copy(
                     name = cleanName,
                     emoji = emoji,
                     colorArgb = colorArgb,
                     category = category,
-                    // 提醒字段随编辑页一起更新；改了规则，触发计数归零
-                    reminderEnabled = reminder.enabled,
-                    reminderHour = reminder.hour,
-                    reminderMinute = reminder.minute,
-                    repeatType = reminder.repeatType.code,
-                    repeatInterval = reminder.interval.coerceAtLeast(1),
-                    repeatWeekdays = reminder.weekdays.sorted().joinToString(","),
-                    repeatMonthDays = reminder.monthDays.sorted().joinToString(","),
-                    endType = reminder.endType.code,
-                    repeatTimes = reminder.times,
-                    remindEndDate = reminder.endDate,
-                    remindStartDate = reminder.startDate.ifBlank { current.effectiveStartDate },
-                    firedCount = 0
-                )
+                    note = note
+                ).withReminder(reminder, resetFired = true)
             )
             habitDao.getById(habitId)?.let { applyReminder(it) }
             refreshHabitWidgets(appContext)
@@ -715,7 +717,9 @@ data class NewHabitDraft(
     val emoji: String,
     val colorArgb: Long,
     val category: String = HabitCategory.DEFAULT,
-    val reminder: ReminderConfig = ReminderConfig.disabled()
+    val reminder: ReminderConfig = ReminderConfig.disabled(),
+    /** 备注。模板导入用不到，这里带默认值只是为了和 [HabitViewModel.createHabits] 对齐 */
+    val note: String = ""
 )
 
 /**
@@ -741,6 +745,30 @@ data class BackupSummary(
     val exportedAt: Long = 0L,
     val json: String = "",
     val error: String? = null
+)
+
+/**
+ * 把一套提醒配置映射到 [Habit] 的提醒字段上。
+ *
+ * 新建（[createHabit] / [createHabits]）和整体编辑（[updateHabit]）共用它，
+ * 「11 个提醒列怎么填」只写这一处，避免三处各抄一遍、改规则时漏掉一边。
+ *
+ * @param resetFired 是否把「已提醒次数」清零。改了提醒规则时传 true——
+ *                   旧次数不该继承，否则「提醒 10 次」在第 8 次改「提醒 5 次」会立刻结束。
+ */
+private fun Habit.withReminder(reminder: ReminderConfig, resetFired: Boolean = false): Habit = copy(
+    reminderEnabled = reminder.enabled,
+    reminderHour = reminder.hour,
+    reminderMinute = reminder.minute,
+    repeatType = reminder.repeatType.code,
+    repeatInterval = reminder.interval.coerceAtLeast(1),
+    repeatWeekdays = reminder.weekdays.sorted().joinToString(","),
+    repeatMonthDays = reminder.monthDays.sorted().joinToString(","),
+    endType = reminder.endType.code,
+    repeatTimes = reminder.times,
+    remindEndDate = reminder.endDate,
+    remindStartDate = reminder.startDate.ifBlank { effectiveStartDate },
+    firedCount = if (resetFired) 0 else firedCount
 )
 
 /**

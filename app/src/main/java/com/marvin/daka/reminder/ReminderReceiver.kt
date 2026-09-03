@@ -58,8 +58,7 @@ class ReminderReceiver : BroadcastReceiver() {
                 val today = todayString()
                 val alreadyDone = DatabaseProvider.get(context)
                     .habitRecordDao()
-                    .getAllForBackup()
-                    .any { it.habitId == habitId && it.date == today }
+                    .exists(habitId, today)
 
                 // 今天已经打过卡就不打扰——天天收到废通知，用户会直接把通知权限关掉
                 if (!alreadyDone) {

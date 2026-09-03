@@ -22,16 +22,16 @@ import com.marvin.daka.model.HabitRecord
  */
 @Database(
     entities = [Habit::class, HabitRecord::class],
-    // version 4：V4 给 habits 表加了 category / sortOrder / pinned 三列，
-    // 见下面的 MIGRATION_3_4。
+    // version 5：V5 给 habits 表加了 note 列（备注），见下面的 MIGRATION_4_5。
     //
     // 演进记录：
     //   v1 → v2：M5 加 colorArgb 列
     //   v2 → v3：V3 加提醒字段组
     //   v3 → v4：V4 加分类/排序/置顶
+    //   v4 → v5：V5 加备注
     //
     // ⚠️ 改表结构必须 +1，否则真机上升级会直接崩（Room 会校验 schema 哈希）。
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class HabitDatabase : RoomDatabase() {
@@ -91,6 +91,21 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
 }
 
 /**
+ * v4 → v5 迁移：备注。
+ *
+ * 老习惯的 note 默认空字符串——它们本来就没有备注，空着就是最诚实的状态，
+ * 不要自作主张填「无」之类的占位文字（界面要判断有没有备注，空串最好判断）。
+ *
+ * 同样遵守铁律：ADD COLUMN 必须带 NOT NULL DEFAULT，且默认值要和
+ * [Habit] 数据类里的默认值（""）保持一致，否则 Room 校验 schema 会报错。
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE habits ADD COLUMN note TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+/**
  * 数据库单例。
  *
  * 为什么必须单例？Room 实例很重（持有数据库连接、线程池），
@@ -121,7 +136,7 @@ object DatabaseProvider {
                 // 属于宁可清空也不要启动崩溃的最后兜底。
                 .fallbackToDestructiveMigration(true)
                 // 正式迁移：保住已有数据
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
                 .also { instance = it }
         }

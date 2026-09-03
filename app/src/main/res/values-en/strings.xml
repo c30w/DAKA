@@ -56,6 +56,10 @@
     <string name="create_title_edit">Edit habit</string>
     <string name="create_name_label">Habit name</string>
     <string name="create_name_placeholder">e.g. Drink 2L water</string>
+    <string name="create_note_label">Note (optional)</string>
+    <string name="create_note_placeholder">Anything: goals, reminders, reflections…</string>
+    <string name="create_draft_restored">Restored your unsaved draft</string>
+    <string name="create_draft_clear">Clear</string>
     <string name="create_category">Category</string>
     <string name="create_custom_category">Custom category (optional)</string>
     <string name="create_custom_category_hint">e.g. Fitness, Reading, Side hustle</string>
@@ -263,6 +267,16 @@
     <string name="settings_check_update">Check for updates</string>
     <string name="settings_update_checking">Checking for updates…</string>
     <string name="settings_update_available">New version %1$s available, tap to open</string>
-    <string name="settings_update_latest">Up to date</string>
+    <string name="settings_update_latest">You\'re on the latest version</string>
     <string name="settings_update_fail">Check failed, tap to retry</string>
+
+    <!-- App shortcuts (long-press launcher icon) -->
+    <string name="shortcut_new_habit_short">New habit</string>
+    <string name="shortcut_new_habit_long">Create a new habit</string>
+    <string name="shortcut_stats_short">Stats</string>
+    <string name="shortcut_stats_long">View statistics</string>
+    <string name="shortcut_check_all_short">Check all</string>
+    <string name="shortcut_check_all_long">Check off every habit left today</string>
+    <string name="shortcut_check_all_result">Checked off %1$d habits</string>
+    <string name="shortcut_check_all_none">Everything is already done today</string>
 </resources>

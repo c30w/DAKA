@@ -34,6 +34,15 @@ interface HabitRecordDao {
     suspend fun getByDate(date: String): List<HabitRecord>
 
     /**
+     * 某个习惯在某天是否已打卡。
+     *
+     * 比 [getByDate] 后 `.any {}` 更省：一个 EXISTS 子查询让 SQLite 在找到第一行后就停，
+     * 不用把当天记录整张搬进内存。闹钟接收器和小组件切换状态都只问这一句，值得单独写一条。
+     */
+    @Query("SELECT EXISTS(SELECT 1 FROM habit_records WHERE habitId = :habitId AND date = :date)")
+    suspend fun exists(habitId: Long, date: String): Boolean
+
+    /**
      * 插入一条打卡记录。
      *
      * onConflict = IGNORE 配合表上的 (habitId, date) 唯一索引：

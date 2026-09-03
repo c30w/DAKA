@@ -61,6 +61,10 @@
     <string name="create_title_edit">编辑习惯</string>
     <string name="create_name_label">习惯名称</string>
     <string name="create_name_placeholder">例如：喝水 2L</string>
+    <string name="create_note_label">备注（可选）</string>
+    <string name="create_note_placeholder">随便记点什么：目标、注意事项、心得……</string>
+    <string name="create_draft_restored">已恢复上次未提交的草稿</string>
+    <string name="create_draft_clear">清空</string>
     <string name="create_category">分类</string>
     <string name="create_custom_category">自定义分类（可选）</string>
     <string name="create_custom_category_hint">如：运动、读书、副业</string>
@@ -273,6 +277,16 @@
     <string name="settings_check_update">检查更新</string>
     <string name="settings_update_checking">正在检查新版本…</string>
     <string name="settings_update_available">发现新版本 %1$s，点击前往</string>
-    <string name="settings_update_latest">已是最新版本</string>
+    <string name="settings_update_latest">当前已是最新版本</string>
     <string name="settings_update_fail">检查失败，点击重试</string>
+
+    <!-- 桌面长按图标的快捷方式 -->
+    <string name="shortcut_new_habit_short">新建习惯</string>
+    <string name="shortcut_new_habit_long">新建习惯</string>
+    <string name="shortcut_stats_short">统计</string>
+    <string name="shortcut_stats_long">查看统计</string>
+    <string name="shortcut_check_all_short">一键打卡</string>
+    <string name="shortcut_check_all_long">今天没打卡的习惯全部打卡</string>
+    <string name="shortcut_check_all_result">已打卡 %1$d 个习惯</string>
+    <string name="shortcut_check_all_none">今天已经全部打卡完成了</string>
 </resources>

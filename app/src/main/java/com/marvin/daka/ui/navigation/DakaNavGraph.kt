@@ -27,9 +27,12 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import android.widget.Toast
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.marvin.daka.R
+import com.marvin.daka.ShortcutActions
+import com.marvin.daka.audio.SoundEffectPlayer
 import com.marvin.daka.data.AppPrefs
 import com.marvin.daka.ui.stats.StatsScreen
 import com.marvin.daka.reminder.ReminderPrefs
@@ -73,6 +76,16 @@ private const val ROUTE_STATS = "stats"
 @Composable
 fun DakaNavGraph(
     factory: HabitViewModelFactory,
+    /**
+     * V5：桌面长按快捷方式带来的 action（null = 普通启动）。
+     * 由 MainActivity 从 intent 里取出后传进来，见 [ShortcutActions]。
+     */
+    shortcutAction: String? = null,
+    /**
+     * 处理完了回调 MainActivity 把 action 清掉。
+     * 不清的话转屏重组会再执行一次——新建页会叠两层、一键打卡会重复提示。
+     */
+    onConsumeShortcut: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
@@ -106,6 +119,38 @@ fun DakaNavGraph(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val showBottomBar = currentRoute in setOf(ROUTE_HOME, ROUTE_STATS)
+
+    // V5：桌面长按快捷方式的落地动作。
+    //
+    // key 用 shortcutAction：只有值变了才跑一遍，处理完立刻回调清空，
+    // 这样转屏、重组都不会重复执行（否则新建页会叠两层、一键打卡会弹两次提示）。
+    //
+    // ⚠️ 一键打卡为什么不能「不打开界面」？
+    // 快捷方式的 intent 只能指向 Activity（见 res/xml/shortcuts.xml 的注释），
+    // 所以只能先拉起 App 再执行。落地点放在导航层而不是 MainActivity：
+    // 因为执行打卡需要 ViewModel，而 ViewModel 是在这里创建的。
+    LaunchedEffect(shortcutAction) {
+        when (shortcutAction) {
+            ShortcutActions.NEW_HABIT -> navController.navigate(ROUTE_CREATE)
+
+            ShortcutActions.STATS -> navController.navigate(ROUTE_STATS) {
+                launchSingleTop = true
+            }
+
+            ShortcutActions.CHECK_ALL -> vm.checkAllToday { checked, _ ->
+                val msg = if (checked > 0) {
+                    context.getString(R.string.shortcut_check_all_result, checked)
+                } else {
+                    context.getString(R.string.shortcut_check_all_none)
+                }
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                if (checked > 0) {
+                    SoundEffectPlayer.play(SoundEffectPlayer.Effect.DakaOk)
+                }
+            }
+        }
+        if (shortcutAction != null) onConsumeShortcut()
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         // V1.3 底部导航：用 Scaffold 的 bottomBar 槽位，而不是在 Box 里用
@@ -150,10 +195,15 @@ fun DakaNavGraph(
         composable(ROUTE_CREATE) {
             CreateHabitScreen(
                 defaultReminderTime = defaultHour to defaultMinute,
-                onSave = { name, emoji, colorArgb, reminder, category ->
+                // V5：note（备注）随习惯一起存库
+                onSave = { name, emoji, colorArgb, reminder, category, note ->
                     // 写库交给 ViewModel，写完直接返回首页。
                     // 不需要「通知首页刷新」——首页订阅的是数据库 Flow，数据一变自己就更新了。
-                    vm.createHabit(name, emoji, colorArgb, reminder, category)
+                    vm.createHabit(name, emoji, colorArgb, reminder, category, note)
+                    // 习惯建好了，草稿使命完成。
+                    // 在**导航层**清而不是在新建页清：新建页马上就被 pop 掉，
+                    // 它的 rememberCoroutineScope 会跟着取消，写在那里大概率来不及执行。
+                    scope.launch { appPrefs.clearHabitDraft() }
                     navController.popBackStack()
                 },
                 onBack = { navController.popBackStack() },
@@ -202,9 +252,9 @@ fun DakaNavGraph(
             if (editing != null) {
                 CreateHabitScreen(
                     editing = editing,
-                    onSave = { _, _, _, _, _ -> },
-                    onUpdate = { id, name, emoji, colorArgb, reminder, category ->
-                        vm.updateHabit(id, name, emoji, colorArgb, category, reminder)
+                    onSave = { _, _, _, _, _, _ -> },
+                    onUpdate = { id, name, emoji, colorArgb, reminder, category, note ->
+                        vm.updateHabit(id, name, emoji, colorArgb, category, reminder, note)
                         navController.popBackStack()
                     },
                     onBack = { navController.popBackStack() }

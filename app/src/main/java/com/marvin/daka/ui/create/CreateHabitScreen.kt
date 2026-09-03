@@ -52,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -62,6 +63,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.marvin.daka.R
 import com.marvin.daka.audio.SoundEffectPlayer
+import com.marvin.daka.data.AppPrefs
 import com.marvin.daka.model.Habit
 import com.marvin.daka.model.HabitCategory
 import com.marvin.daka.model.ReminderConfig
@@ -69,6 +71,9 @@ import com.marvin.daka.ui.common.ColorCatalog
 import com.marvin.daka.ui.common.IconCatalog
 import com.marvin.daka.ui.reminder.ReminderConfigEditor
 import com.marvin.daka.ui.theme.DAKATheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /**
  * 新建 / 编辑习惯页（M5 建立 → V3 提醒设置 → V4 图标推荐 + 全量选择器 + 分类 + 编辑模式）。
@@ -77,12 +82,13 @@ import com.marvin.daka.ui.theme.DAKATheme
  * 两者 90% 的 UI 是一样的，拆成两个页面意味着每改一个功能要同步改两处，
  * 早晚有一天忘了改一边。复用的代价只是多传一个 [editing] 参数，划算。
  *
- * 图标 / 颜色选择器的布局规则（V4 按老陈的要求定的）：
- *   - 图标固定 3 行 × 6 列，不滚动；最后一格是「更多」
- *   - 颜色固定 2 行 × 6 列，不滚动；最后一格是「更多」
+ * 图标 / 颜色选择器的布局规则（V5 按老陈的要求改过）：
+ *   - 图标固定 2 行 × 6 列，不滚动；最后一格是「更多」（V4 是 3 行）
+ *   - 颜色固定 1 行 × 6 列，不滚动；最后一格是「更多」（V4 是 2 行）
  *   - 「更多」弹出全量选择的对话框
- * 全部铺开的 17 个图标 / 11 个颜色是精选的常用项，
- * 冷门项收进二级对话框——页面不滚 = 所有一眼可见，选择效率高得多。
+ * 铺开的 11 个图标 / 5 个颜色是精选的常用项（见 IconCatalog.FEATURED 的前几项），
+ * 冷门项收进二级对话框。行数砍掉是为了让「名称 + 备注 + 分类 + 图标 + 颜色」
+ * 一屏能多看一点，减少滚动。
  *
  * 状态管理用的是最朴素的 `by remember { mutableStateOf(...) }`：
  * 这些值**只在这一个页面内用**，不跨页面、不需要存活到转屏之后，
@@ -95,8 +101,23 @@ fun CreateHabitScreen(
     /** 传非 null = 编辑模式：预填这个习惯的全部设置，保存走 onUpdate */
     editing: Habit? = null,
     defaultReminderTime: Pair<Int, Int> = 21 to 0,
-    onSave: (name: String, emoji: String, colorArgb: Long, reminder: ReminderConfig, category: String) -> Unit = { _, _, _, _, _ -> },
-    onUpdate: (habitId: Long, name: String, emoji: String, colorArgb: Long, reminder: ReminderConfig, category: String) -> Unit = { _, _, _, _, _, _ -> },
+    onSave: (
+        name: String,
+        emoji: String,
+        colorArgb: Long,
+        reminder: ReminderConfig,
+        category: String,
+        note: String
+    ) -> Unit = { _, _, _, _, _, _ -> },
+    onUpdate: (
+        habitId: Long,
+        name: String,
+        emoji: String,
+        colorArgb: Long,
+        reminder: ReminderConfig,
+        category: String,
+        note: String
+    ) -> Unit = { _, _, _, _, _, _, _ -> },
     onBack: () -> Unit,
     /** V1.3：打开模板库。编辑模式下不会用到（习惯已经存在了，没得从模板挑） */
     onOpenTemplates: () -> Unit = {},
@@ -127,6 +148,10 @@ fun CreateHabitScreen(
     }
     // 最终分类 = 有自定义输入就用自定义，否则用选中的内置（读到了两个 state，重组自动取最新值）
     val category = customText.trim().ifBlank { selectedBuiltin }
+    // V5：备注。用户随便写什么都可以，不做任何解析、不做长度限制（只存不展示）。
+    // 编辑模式预填已有备注；新建模式从草稿恢复（见下面 draftRestore 的 LaunchedEffect）。
+    var note by remember { mutableStateOf(editing?.note.orEmpty()) }
+
     var reminder by remember {
         mutableStateOf(
             if (editing != null) {
@@ -140,12 +165,91 @@ fun CreateHabitScreen(
         )
     }
 
+    // V5：草稿的读写入口。只在**新建模式**用——编辑模式改的是已经存在的习惯，
+    // 不存在「草稿」这回事，也绝不能让编辑页把用户另一份未提交的草稿冲掉。
+    val context = LocalContext.current
+    val appPrefs = remember(context) { AppPrefs(context.applicationContext) }
+
     // 「图标跟着名字自动选」：名字一变就重新推荐——但只在用户**还没手动挑过**图标时。
     // 一旦用户自己点了某个图标，就闭嘴不再自动改（userPickedEmoji 锁住），
     // 否则用户刚选好 🎸，多打一个字图标又跳回 💧，体验极差。
     var userPickedEmoji by remember { mutableStateOf(isEditing) }
     LaunchedEffect(name) {
         if (!userPickedEmoji) selectedEmoji = IconCatalog.suggest(name)
+    }
+
+    // ------------------------------------------------------------------
+    // V5：草稿 —— 「返回也自动保存不清空」
+    //
+    // 三个状态变量的分工：
+    //   draftReady  —— 草稿已读完，自动保存才允许动手。
+    //                  没有它的话，页面刚打开（name 还是空）就会先跑一次保存，
+    //                  把上次存下的草稿清掉，然后才轮到恢复逻辑去读——读到空，白存。
+    //   draftRestored —— 这份内容是恢复出来的（给用户一句提示 + 一个「清空」入口）
+    //   submitted   —— 已经点了保存。防止那个还在 400ms 倒计时的自动保存
+    //                  在清空草稿之后又写回一份，表现为「保存完下次进来内容还在」。
+    // ------------------------------------------------------------------
+    var draftReady by remember { mutableStateOf(isEditing) }
+    var draftRestored by remember { mutableStateOf(false) }
+    var submitted by remember { mutableStateOf(false) }
+
+    // 进页面先恢复草稿。
+    // 注意 draftReady 的置位放在**最后一行**：必须等草稿读完、字段都填好了，
+    // 才允许下面那段自动保存动手，否则「先清空、后恢复」的顺序一错，草稿就没了。
+    LaunchedEffect(Unit) {
+        if (!isEditing) {
+            val draft = appPrefs.habitDraft.first()
+            if (draft != null && (draft.name.isNotBlank() || draft.note.isNotBlank())) {
+                name = draft.name
+                note = draft.note
+                selectedEmoji = draft.emoji
+                selectedColor = draft.colorArgb
+                if (draft.category in HabitCategory.ALL) {
+                    selectedBuiltin = draft.category
+                    customText = ""
+                } else {
+                    customText = draft.category
+                    selectedBuiltin = HabitCategory.DEFAULT
+                }
+                // 恢复出来的图标是用户挑过的，别让「名字一变就自动换图标」把它覆盖掉
+                userPickedEmoji = true
+                draftRestored = true
+            }
+        }
+        draftReady = true
+    }
+
+    // 输入一变就（停手 400ms 后）落盘。按返回退出也不会丢，下次进来自动恢复。
+    // delay 兼作防抖：连打十个字只在停手后写一次文件，不会一个字写一次。
+    LaunchedEffect(draftReady, name, note, selectedEmoji, selectedColor, category) {
+        if (isEditing || !draftReady || submitted) return@LaunchedEffect
+        delay(DRAFT_SAVE_DEBOUNCE_MS)
+        if (name.isBlank() && note.isBlank()) {
+            // 名字和备注都空了 = 用户不想留了，清掉，别下次进来又冒出来
+            appPrefs.clearHabitDraft()
+        } else {
+            appPrefs.setHabitDraft(
+                AppPrefs.HabitDraft(
+                    name = name,
+                    note = note,
+                    emoji = selectedEmoji,
+                    colorArgb = selectedColor,
+                    category = category
+                )
+            )
+        }
+    }
+
+    /** 手动清空：把页面恢复成全新状态，自动保存随后会把草稿清掉 */
+    fun clearEverything() {
+        name = ""
+        note = ""
+        customText = ""
+        selectedBuiltin = HabitCategory.DEFAULT
+        selectedEmoji = IconCatalog.FEATURED.first().emoji
+        selectedColor = ColorCatalog.FEATURED.first().argb
+        userPickedEmoji = false
+        draftRestored = false
     }
 
     // 二级对话框的开关状态
@@ -208,6 +312,39 @@ fun CreateHabitScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // ---- V5：备注 ----
+            // 紧贴名称放在最上面：两个都是「打字」的活儿，挨着填不用滚。
+            // 多行（minLines 而不是 maxLines）——minLines 保证空着也有三行高，
+            // 写着写着往下长；maxLines 只限制上限，不保证初始高度，会把布局压扁。
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = note,
+                onValueChange = { note = it },
+                label = { Text(stringResource(R.string.create_note_label)) },
+                placeholder = { Text(stringResource(R.string.create_note_placeholder)) },
+                minLines = 3,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // 内容是恢复出来的草稿时给个说明 + 一键清空。
+            // 不给提示的话，用户打开「+」看到一堆已经填好的内容会以为是 bug。
+            if (!isEditing && draftRestored) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.create_draft_restored),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = ::clearEverything) {
+                        Text(stringResource(R.string.create_draft_clear))
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
 
             // ---- V4.11：分类（内置 chip + 自定义输入框） ----
@@ -254,7 +391,7 @@ fun CreateHabitScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // ---- 图标（3 行 × 6 列，不滚动，最后一格「更多」） ----
+            // ---- 图标（2 行 × 6 列，不滚动，最后一格「更多」） ----
             Text(
                 text = stringResource(R.string.create_icon),
                 style = MaterialTheme.typography.labelLarge,
@@ -272,7 +409,7 @@ fun CreateHabitScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // ---- 主题色（2 行 × 6 列，不滚动，最后一格「更多」） ----
+            // ---- 主题色（1 行 × 6 列，不滚动，最后一格「更多」） ----
             Text(
                 text = stringResource(R.string.create_color),
                 style = MaterialTheme.typography.labelLarge,
@@ -302,12 +439,15 @@ fun CreateHabitScreen(
                 onClick = {
                     // 保存成功：清脆反馈，不喧宾夺主
                     SoundEffectPlayer.play(SoundEffectPlayer.Effect.DakaOk)
+                    // 先立 flag，挡住那个还在 400ms 倒计时的草稿自动保存——
+                    // 否则它会紧接着把刚清掉的草稿又写回去
+                    submitted = true
                     if (isEditing) {
                         onUpdate(
-                            editing.id, name, selectedEmoji, selectedColor, reminder, category
+                            editing.id, name, selectedEmoji, selectedColor, reminder, category, note
                         )
                     } else {
-                        onSave(name, selectedEmoji, selectedColor, reminder, category)
+                        onSave(name, selectedEmoji, selectedColor, reminder, category, note)
                     }
                 },
                 enabled = name.isNotBlank(),
@@ -394,17 +534,32 @@ private fun PickerDialog(
 }
 
 // ------------------------------------------------------------------
-// 图标网格：3 行 × 6 列，第 18 格是「更多」
+// 图标网格：2 行 × 6 列，第 12 格是「更多」
 // ------------------------------------------------------------------
+
+/**
+ * 草稿自动保存的防抖时长。
+ *
+ * 停手 400ms 再落盘：连打十个字只写一次文件，而不是每个字写一次。
+ * DataStore 每次写都要过一遍文件事务，打字时高频触发纯属浪费。
+ */
+private const val DRAFT_SAVE_DEBOUNCE_MS = 400L
 
 /** 图标网格每行几个。6 × 44dp + 5 × 8dp 间距 = 304dp，最窄的屏也放得下 */
 private const val GRID_COLUMNS = 6
 
-/** 页面上直接铺开的图标行数 */
-private const val GRID_ICON_ROWS = 3
+/**
+ * 页面上直接铺开的图标行数。
+ * V5：3 行 → 2 行（11 个图标 + 1 个「更多」）。腾出来的高度给备注输入框。
+ */
+private const val GRID_ICON_ROWS = 2
 
-/** 颜色网格行数 */
-private const val GRID_COLOR_ROWS = 2
+/**
+ * 颜色网格行数。
+ * V5：2 行 → 1 行（5 个颜色 + 1 个「更多」）。
+ * 最常用的就前五个，剩下的点「更多」也就一步的事。
+ */
+private const val GRID_COLOR_ROWS = 1
 
 @Composable
 private fun IconGrid(
@@ -536,7 +691,7 @@ private fun Modifier.aspectRatioCell(): Modifier =
     this.then(Modifier.height(48.dp))
 
 // ------------------------------------------------------------------
-// 颜色网格：2 行 × 6 列，第 12 格是「更多」
+// 颜色网格：1 行 × 6 列，第 6 格是「更多」
 // ------------------------------------------------------------------
 
 @Composable
@@ -546,7 +701,7 @@ private fun ColorGrid(
     onMore: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // 2 行 × 6 列 = 12 格，最后一格（右下角）固定是「更多」
+    // 1 行 × 6 列 = 6 格，最后一格（右下角）固定是「更多」
     val totalSlots = GRID_COLUMNS * GRID_COLOR_ROWS
     val shown = ColorCatalog.FEATURED.take(totalSlots - 1)
 

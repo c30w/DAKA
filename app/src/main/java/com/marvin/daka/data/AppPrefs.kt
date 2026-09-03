@@ -56,6 +56,19 @@ class AppPrefs(private val context: Context) {
         val UPDATE_CHECK_VERSION = stringPreferencesKey("update_check_version")
         val UPDATE_CHECK_URL = stringPreferencesKey("update_check_url")
         val UPDATE_CHECK_AT = longPreferencesKey("update_check_at")
+
+        /**
+         * V5：新建习惯页的**未提交草稿**（名称/备注/图标/颜色/分类）。
+         *
+         * 为什么存 DataStore 而不是 Room？
+         * 草稿是「还没成为习惯的一堆输入」，它不是一个习惯，
+         * 塞进 habits 表会污染首页列表和备份文件。它本质是界面偏好，归这里管。
+         */
+        val DRAFT_NAME = stringPreferencesKey("draft_name")
+        val DRAFT_NOTE = stringPreferencesKey("draft_note")
+        val DRAFT_EMOJI = stringPreferencesKey("draft_emoji")
+        val DRAFT_COLOR = longPreferencesKey("draft_color")
+        val DRAFT_CATEGORY = stringPreferencesKey("draft_category")
     }
 
     /** 用户自定义的分类顺序。空列表 = 没自定义过，按内置顺序展示 */
@@ -130,6 +143,59 @@ class AppPrefs(private val context: Context) {
             it[Keys.UPDATE_CHECK_VERSION] = version
             it[Keys.UPDATE_CHECK_URL] = url
             it[Keys.UPDATE_CHECK_AT] = System.currentTimeMillis()
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // V5：新建习惯页的未提交草稿
+    // ------------------------------------------------------------------
+
+    /**
+     * 新建页填了一半、用户按返回退出时的那份输入。
+     * 存下来是为了「返回也自动保存不清空」——下次点「+」进来还在。
+     */
+    data class HabitDraft(
+        val name: String,
+        val note: String,
+        val emoji: String,
+        val colorArgb: Long,
+        val category: String
+    )
+
+    /** null = 没有草稿（从来没存过，或者被清掉了） */
+    val habitDraft: Flow<HabitDraft?> = context.appDataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { prefs ->
+            val name = prefs[Keys.DRAFT_NAME] ?: return@map null
+            val emoji = prefs[Keys.DRAFT_EMOJI] ?: return@map null
+            val color = prefs[Keys.DRAFT_COLOR] ?: return@map null
+            val category = prefs[Keys.DRAFT_CATEGORY] ?: return@map null
+            HabitDraft(
+                name = name,
+                note = prefs[Keys.DRAFT_NOTE].orEmpty(),
+                emoji = emoji,
+                colorArgb = color,
+                category = category
+            )
+        }
+
+    suspend fun setHabitDraft(draft: HabitDraft) {
+        context.appDataStore.edit {
+            it[Keys.DRAFT_NAME] = draft.name
+            it[Keys.DRAFT_NOTE] = draft.note
+            it[Keys.DRAFT_EMOJI] = draft.emoji
+            it[Keys.DRAFT_COLOR] = draft.colorArgb
+            it[Keys.DRAFT_CATEGORY] = draft.category
+        }
+    }
+
+    suspend fun clearHabitDraft() {
+        context.appDataStore.edit {
+            it.remove(Keys.DRAFT_NAME)
+            it.remove(Keys.DRAFT_NOTE)
+            it.remove(Keys.DRAFT_EMOJI)
+            it.remove(Keys.DRAFT_COLOR)
+            it.remove(Keys.DRAFT_CATEGORY)
         }
     }
 }

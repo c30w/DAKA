@@ -16,7 +16,7 @@ object IconCatalog {
     /** 一个图标 = emoji + 中文名（读屏用，选择对话框里也显示） */
     data class IconItem(val emoji: String, val label: String)
 
-    /** 全量图标。新建页默认展示前 17 个 + 1 个「更多」入口，其余进二级对话框 */
+    /** 全量图标。新建页默认展示前 11 个 + 1 个「更多」入口（V5 起 2 行），其余进二级对话框 */
     val ALL: List<IconItem> = listOf(
         IconItem("💧", "喝水"),
         IconItem("🏃", "跑步"),

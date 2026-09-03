@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  桌面长按图标弹出的快捷方式（App Shortcuts）。
+
+  这份是**静态**快捷方式：写死在 XML 里，装完 App 就有了，不需要代码注册。
+  三种写法对比：
+    - 静态（本文件）：固定入口，装完即在，改文案要重新发版。适合「新建 / 统计」这种常驻动作。
+    - 动态（ShortcutManager）：代码里增删，能带上下文（比如「继续昨天的 XX」）。
+      一键打卡原本想用动态（好在标签上显示「还有 3 个没打卡」），
+      但那样得在每次打卡后同步刷新快捷方式，收益配不上复杂度，
+      而且快捷方式最多只能显示 4 个（静态 + 动态加起来），占额度不划算。
+      所以三个统一用静态。
+    - 固定（pinned）：用户手动拖到桌面的独立图标。
+
+  ⚠️ 三个必须注意的点：
+    1. targetPackage / targetClass 必须**写全**。快捷方式的 Intent 由启动器（另一个 App）
+       发出，不写全它不知道该启动谁。
+    2. intent 只能指向 **Activity**，不能指向 BroadcastReceiver / Service。
+       所以「一键打卡」也只能先拉起 MainActivity，再由它执行，做不到「不打开界面」。
+    3. 引用这份 XML 的 meta-data 必须挂在**启动 Activity**（带 MAIN + LAUNCHER 的那个）上，
+       写在 application 节点里是无效的（见 AndroidManifest.xml）。
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:shortcutId="new_habit"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_new_habit"
+        android:shortcutShortLabel="@string/shortcut_new_habit_short"
+        android:shortcutLongLabel="@string/shortcut_new_habit_long">
+        <intent
+            android:action="com.marvin.daka.action.NEW_HABIT"
+            android:targetClass="com.marvin.daka.MainActivity"
+            android:targetPackage="com.marvin.daka" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="stats"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_stats"
+        android:shortcutShortLabel="@string/shortcut_stats_short"
+        android:shortcutLongLabel="@string/shortcut_stats_long">
+        <intent
+            android:action="com.marvin.daka.action.STATS"
+            android:targetClass="com.marvin.daka.MainActivity"
+            android:targetPackage="com.marvin.daka" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="check_all"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_check_all"
+        android:shortcutShortLabel="@string/shortcut_check_all_short"
+        android:shortcutLongLabel="@string/shortcut_check_all_long">
+        <intent
+            android:action="com.marvin.daka.action.CHECK_ALL"
+            android:targetClass="com.marvin.daka.MainActivity"
+            android:targetPackage="com.marvin.daka" />
+    </shortcut>
+
+</shortcuts>
