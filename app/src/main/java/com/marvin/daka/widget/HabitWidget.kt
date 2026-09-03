@@ -38,9 +38,11 @@ import com.marvin.daka.data.local.DatabaseProvider
 import com.marvin.daka.model.Habit
 import com.marvin.daka.model.HabitRecord
 import com.marvin.daka.util.todayString
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -62,7 +64,7 @@ import kotlinx.coroutines.withContext
 class HabitWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val list = runBlocking { loadTodayHabits(context) }
+        val list = loadTodayHabits(context)
         val done = list.count { it.second }
         val total = list.size
 
@@ -245,11 +247,21 @@ internal suspend fun loadTodayHabits(context: Context): List<Pair<Habit, Boolean
     return habits.map { it to (it.id in todaySet) }
 }
 
-/** 数据变更后调用，让全部小组件（2×2 / 1×4 / 4×3）一起刷新。 */
-suspend fun refreshHabitWidgets(context: Context) {
-    HabitWidget().updateAll(context)
-    HabitWidgetWide().updateAll(context)
-    HabitWidgetBig().updateAll(context)
+/** 数据变更后调用，让全部小组件（2×2 / 1×4 / 4×3）一起刷新。
+ *
+ * 用独立应用级作用域 + SupervisorJob，而不是调用方的 ViewModelScope：
+ * 1. 用户点完打卡切走/杀后台后，刷新广播仍然会发出去；
+ * 2. 某一类组件更新失败不影响其他两类；
+ * 3. 调用方不需要自己切线程或处理 suspend。
+ */
+private val widgetRefreshScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+fun refreshHabitWidgets(context: Context) {
+    widgetRefreshScope.launch {
+        HabitWidget().updateAll(context)
+        HabitWidgetWide().updateAll(context)
+        HabitWidgetBig().updateAll(context)
+    }
 }
 
 // ------------------------------------------------------------------

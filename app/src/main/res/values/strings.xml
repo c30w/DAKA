@@ -107,6 +107,14 @@
     <string name="settings_theme_device">跟随系统</string>
     <string name="settings_theme_light">浅色</string>
     <string name="settings_theme_dark">深色</string>
+
+    <!-- 电池优化：对 MIUI 等 ROM 的小组件实时刷新很重要 -->
+    <string name="settings_battery_opt">电池优化</string>
+    <string name="settings_battery_opt_desc_allowed">已允许后台运行，小组件可实时刷新</string>
+    <string name="settings_battery_opt_desc_restricted">当前受电池优化限制，MIUI 等 ROM 可能延迟小组件刷新</string>
+    <string name="settings_battery_opt_btn_allowed">已开启</string>
+    <string name="settings_battery_opt_btn_request">去设置</string>
+
     <string name="snack_alarm_perm">需要「闹钟和提醒」权限才能准时提醒</string>
     <string name="snack_notif_perm">没给通知权限，提醒不会响</string>
     <string name="snack_exported">备份已导出</string>

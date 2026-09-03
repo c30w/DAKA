@@ -101,6 +101,14 @@
     <string name="settings_theme_device">Follow device</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
+
+    <!-- Battery optimization: important for real-time widget updates on MIUI-like ROMs -->
+    <string name="settings_battery_opt">Battery optimization</string>
+    <string name="settings_battery_opt_desc_allowed">Allowed to run in background; widgets update in real time</string>
+    <string name="settings_battery_opt_desc_restricted">Restricted by battery optimization; MIUI-like ROMs may delay widget updates</string>
+    <string name="settings_battery_opt_btn_allowed">Allowed</string>
+    <string name="settings_battery_opt_btn_request">Go to settings</string>
+
     <string name="snack_alarm_perm">The \"Alarms &amp; reminders\" permission is required for on-time reminders</string>
     <string name="snack_notif_perm">No notification permission, reminders won\'t ring</string>
     <string name="snack_exported">Backup exported</string>
