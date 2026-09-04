@@ -196,10 +196,10 @@ fun DakaNavGraph(
             CreateHabitScreen(
                 defaultReminderTime = defaultHour to defaultMinute,
                 // V5：note（备注）随习惯一起存库
-                onSave = { name, emoji, colorArgb, reminder, category, note ->
+                onSave = { name, emoji, colorArgb, reminders, category, note ->
                     // 写库交给 ViewModel，写完直接返回首页。
                     // 不需要「通知首页刷新」——首页订阅的是数据库 Flow，数据一变自己就更新了。
-                    vm.createHabit(name, emoji, colorArgb, reminder, category, note)
+                    vm.createHabit(name, emoji, colorArgb, reminders, category, note)
                     // 习惯建好了，草稿使命完成。
                     // 在**导航层**清而不是在新建页清：新建页马上就被 pop 掉，
                     // 它的 rememberCoroutineScope 会跟着取消，写在那里大概率来不及执行。
@@ -247,14 +247,20 @@ fun DakaNavGraph(
         ) { entry ->
             val habitId = entry.arguments?.getLong("habitId") ?: 0L
             val habits by vm.habits.collectAsStateWithLifecycle()
+            val allReminders by vm.reminders.collectAsStateWithLifecycle()
             val editing = habits.firstOrNull { it.id == habitId }
+            // 该习惯的附加提醒，转成编辑器认的 ReminderConfig
+            val editingExtras = allReminders
+                .filter { it.habitId == habitId }
+                .map { ReminderConfig.from(it) }
 
             if (editing != null) {
                 CreateHabitScreen(
                     editing = editing,
+                    editingExtras = editingExtras,
                     onSave = { _, _, _, _, _, _ -> },
-                    onUpdate = { id, name, emoji, colorArgb, reminder, category, note ->
-                        vm.updateHabit(id, name, emoji, colorArgb, category, reminder, note)
+                    onUpdate = { id, name, emoji, colorArgb, reminders, category, note ->
+                        vm.updateHabit(id, name, emoji, colorArgb, category, reminders, note)
                         navController.popBackStack()
                     },
                     onBack = { navController.popBackStack() }

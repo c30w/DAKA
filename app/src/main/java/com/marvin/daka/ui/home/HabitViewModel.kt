@@ -9,12 +9,17 @@ import com.marvin.daka.calendar.CalendarRepository
 import com.marvin.daka.calendar.endOfDayMillis
 import com.marvin.daka.calendar.startOfDayMillis
 import com.marvin.daka.data.AppPrefs
+import com.marvin.daka.data.local.DatabaseProvider
 import com.marvin.daka.data.local.HabitDao
 import com.marvin.daka.data.local.HabitRecordDao
 import com.marvin.daka.model.BACKUP_VERSION
 import com.marvin.daka.model.BackupData
 import com.marvin.daka.model.Habit
 import com.marvin.daka.model.HabitCategory
+import com.marvin.daka.model.HabitSkip
+import com.marvin.daka.model.Reminder
+import com.marvin.daka.model.ReminderLike
+import com.marvin.daka.model.toReminder
 import com.marvin.daka.model.HabitRecord
 import com.marvin.daka.model.HabitUi
 import com.marvin.daka.model.ReminderConfig
@@ -93,13 +98,29 @@ class HabitViewModel(
      */
     private val appPrefs = AppPrefs(appContext)
 
+    /** 附加提醒 DAO（多提醒用）。VM 直接拿，避免改构造函数传染到工厂和 MainActivity */
+    private val reminderDao = DatabaseProvider.get(appContext).reminderDao()
+    /** 跳过当天 DAO（跳过当天 + Streak 排除用） */
+    private val habitSkipDao = DatabaseProvider.get(appContext).habitSkipDao()
+
+    /** 全部附加提醒，响应式。日历/编辑页据此和主提醒合并展开 */
+    val reminders: StateFlow<List<Reminder>> = reminderDao.observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 全部跳过记录，响应式。汇总成「习惯 → 跳过日期集合」供 Streak 排除与界面显示 */
+    val skips: StateFlow<List<HabitSkip>> = habitSkipDao.observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** 界面订阅这个就行 —— 数据齐了、状态算好了，直接画 */
     val items: StateFlow<List<HabitUi>> =
         combine(
             habitDao.observeAll(),
-            recordDao.observeAll()
-        ) { habits, records ->
-            buildHabitUiList(habits, records)
+            recordDao.observeAll(),
+            skips
+        ) { habits, records, skipList ->
+            val skipByHabit = skipList.groupBy({ it.habitId }, { it.skipDate })
+                .mapValues { (_, v) -> v.toSet() }
+            buildHabitUiList(habits, records, skipByHabit)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -111,8 +132,11 @@ class HabitViewModel(
         combine(
             habitDao.observeAll(),
             recordDao.observeAll(),
-            appPrefs.categoryOrder
-        ) { habits, records, savedOrder ->
+            appPrefs.categoryOrder,
+            skips
+        ) { habits, records, savedOrder, skipList ->
+            val skipByHabit = skipList.groupBy({ it.habitId }, { it.skipDate })
+                .mapValues { (_, v) -> v.toSet() }
             val byCategory = habits.groupBy { HabitCategory.of(it.category) }
             if (byCategory.isEmpty()) return@combine emptyList()
 
@@ -137,7 +161,8 @@ class HabitViewModel(
                         // 分组内排序：sortOrder 小的在前，同号按创建时间（老数据全是 0 的兜底）
                         byCategory.getValue(category)
                             .sortedWith(compareBy({ it.sortOrder }, { it.createdAt })),
-                        records
+                        records,
+                        skipByHabit
                     )
                 )
             }
@@ -181,21 +206,26 @@ class HabitViewModel(
      * 是纯内存计算，几十个习惯 × 42 天，耗时可以忽略。
      */
     val reminderOccurrences: StateFlow<List<ReminderOccurrence>> =
-        combine(habits, _monthAnchor) { list, anchor ->
+        combine(habits, reminders, _monthAnchor) { list, remList, anchor ->
             val (from, to) = monthGridRange(anchor)
+            val byHabit = remList.groupBy { it.habitId }
             list.flatMap { habit ->
-                val ruleText = ReminderRule.describe(habit)
-                ReminderRule.expand(habit, from, to).map { date ->
-                    ReminderOccurrence(
-                        habitId = habit.id,
-                        habitName = habit.name,
-                        emoji = habit.emoji,
-                        colorArgb = habit.colorArgb,
-                        date = date,
-                        hour = habit.reminderHour,
-                        minute = habit.reminderMinute,
-                        ruleText = ruleText
-                    )
+                // 主提醒（在 habit 上，reminderId=0）+ 所有附加提醒（库里），合并展开
+                val all = listOf<ReminderLike>(habit) + byHabit[habit.id].orEmpty()
+                all.flatMap { r ->
+                    val ruleText = ReminderRule.describe(r)
+                    ReminderRule.expand(r, from, to).map { date ->
+                        ReminderOccurrence(
+                            habitId = habit.id,
+                            habitName = habit.name,
+                            emoji = habit.emoji,
+                            colorArgb = habit.colorArgb,
+                            date = date,
+                            hour = r.reminderHour,
+                            minute = r.reminderMinute,
+                            ruleText = ruleText
+                        )
+                    }
                 }
             }.sortedWith(compareBy({ it.date }, { it.hour }, { it.minute }))
         }.stateIn(
@@ -308,7 +338,32 @@ class HabitViewModel(
     fun deleteHabit(habitId: Long) {
         viewModelScope.launch(Dispatchers.IO) {
             habitDao.archive(habitId)
+            // 附加提醒和跳过记录一并清掉：外键级联只在硬删除时生效，
+            // 软归档（archive）不触发，必须手动清——否则「已删除」的习惯
+            // 还会残留跳过记录，污染备份导出
+            reminderDao.deleteByHabit(habitId)
+            habitSkipDao.deleteByHabit(habitId)
             ReminderScheduler.cancelHabit(appContext, habitId)
+        }
+    }
+
+    /**
+     * 跳过今天的打卡（首页操作面板入口）。
+     *
+     * 跳过 ≠ 打卡：那天不算完成（日历上不亮），但**也不算断签**——
+     * 连续天数把跳过日直接穿过：昨天打卡、今天跳过、明天打卡，连击照常累加。
+     * 典型场景：生病、出差、就是不想动，别让一天的空档毁掉 30 天连击。
+     */
+    fun skipToday(habitId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            habitSkipDao.insert(HabitSkip(habitId = habitId, skipDate = todayString()))
+        }
+    }
+
+    /** 取消今天的跳过（点错了想反悔，随时可以撤） */
+    fun unskipToday(habitId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            habitSkipDao.delete(habitId, todayString())
         }
     }
 
@@ -325,7 +380,7 @@ class HabitViewModel(
         name: String,
         emoji: String,
         colorArgb: Long,
-        reminder: ReminderConfig,
+        reminders: List<ReminderConfig>,
         category: String = HabitCategory.DEFAULT,
         note: String = ""
     ) {
@@ -334,6 +389,8 @@ class HabitViewModel(
 
         viewModelScope.launch(Dispatchers.IO) {
             val nextOrder = (habitDao.getMaxSortOrder() ?: 0) + 1
+            // 列表第一项当主提醒，写进 habits 表；其余是附加提醒，写进 reminders 表
+            val primary = reminders.firstOrNull() ?: ReminderConfig.disabled()
             val ids = habitDao.insertAll(
                 listOf(
                     Habit(
@@ -343,10 +400,14 @@ class HabitViewModel(
                         category = category,
                         sortOrder = nextOrder,
                         note = note
-                    ).withReminder(reminder)
+                    ).withReminder(primary)
                 )
             )
             val newId = ids.firstOrNull() ?: return@launch
+            val extras = reminders.drop(1)
+            if (extras.isNotEmpty()) {
+                reminderDao.insertAll(extras.map { it.toReminder(newId) })
+            }
             habitDao.getById(newId)?.let { applyReminder(it) }
         }
     }
@@ -434,10 +495,14 @@ class HabitViewModel(
      * 反映你曾经坚持得最狠的一段，比「当前连击」更能体现长期毅力。
      */
     val bestStreak: StateFlow<Int> =
-        combine(habitDao.observeAll(), recordDao.observeAll()) { habits, records ->
+        combine(habitDao.observeAll(), recordDao.observeAll(), skips) { habits, records, skipList ->
             val datesByHabit = records.groupBy { it.habitId }
                 .mapValues { (_, list) -> list.map { it.date }.toSet() }
-            habits.maxOfOrNull { calcBestStreak(datesByHabit[it.id].orEmpty()) } ?: 0
+            val skipByHabit = skipList.groupBy({ it.habitId }, { it.skipDate })
+                .mapValues { (_, v) -> v.toSet() }
+            habits.maxOfOrNull {
+                calcBestStreak(datesByHabit[it.id].orEmpty(), skipByHabit[it.id].orEmpty())
+            } ?: 0
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -499,7 +564,7 @@ class HabitViewModel(
         emoji: String,
         colorArgb: Long,
         category: String,
-        reminder: ReminderConfig,
+        reminders: List<ReminderConfig>,
         note: String = ""
     ) {
         val cleanName = name.trim()
@@ -507,7 +572,9 @@ class HabitViewModel(
 
         viewModelScope.launch(Dispatchers.IO) {
             val current = habitDao.getById(habitId) ?: return@launch
-            // 改了规则，触发计数归零；提醒字段统一走 withReminder 映射
+            // 列表第一项当主提醒写进 habits 表，其余进 reminders 表
+            val primary = reminders.firstOrNull() ?: ReminderConfig.disabled()
+            // 改了规则，触发计数归零；主提醒字段统一走 withReminder 映射
             habitDao.update(
                 current.copy(
                     name = cleanName,
@@ -515,8 +582,14 @@ class HabitViewModel(
                     colorArgb = colorArgb,
                     category = category,
                     note = note
-                ).withReminder(reminder, resetFired = true)
+                ).withReminder(primary, resetFired = true)
             )
+            // 附加提醒整体重建（全删全插）：一个习惯顶多几条提醒，不值得做逐条 diff
+            reminderDao.deleteByHabit(habitId)
+            val extras = reminders.drop(1)
+            if (extras.isNotEmpty()) {
+                reminderDao.insertAll(extras.map { it.toReminder(habitId) })
+            }
             habitDao.getById(habitId)?.let { applyReminder(it) }
         }
     }
@@ -655,7 +728,7 @@ class HabitViewModel(
     }
 
     /** 按习惯当前设置重排闹钟。关着的会顺带取消旧闹钟 */
-    private fun applyReminder(habit: Habit) {
+    private suspend fun applyReminder(habit: Habit) {
         ReminderScheduler.scheduleHabit(appContext, habit)
     }
 
@@ -678,7 +751,9 @@ class HabitViewModel(
     suspend fun buildBackupJson(): String = withContext(Dispatchers.IO) {
         val data = BackupData(
             habits = habitDao.getAllForBackup(),
-            records = recordDao.getAllForBackup()
+            records = recordDao.getAllForBackup(),
+            reminders = reminderDao.getAllForBackup(),
+            skips = habitSkipDao.getAll()
         )
         PRETTY_JSON.encodeToString(data)
     }
@@ -725,6 +800,9 @@ class HabitViewModel(
         // 先插记录会因为「找不到主人」违反外键约束而崩。
         habitDao.upsertAll(data.habits)
         recordDao.upsertAll(data.records)
+        // v2 备份带附加提醒和跳过记录；v1 老备份这两项是空列表，合并等于无操作
+        reminderDao.upsertAll(data.reminders)
+        habitSkipDao.upsertAll(data.skips)
 
         // 恢复进来的习惯可能带着提醒设置，全部重排一遍
         ReminderScheduler.rescheduleAll(appContext)
@@ -819,7 +897,8 @@ private fun Habit.withReminder(reminder: ReminderConfig, resetFired: Boolean = f
  */
 private fun buildHabitUiList(
     habits: List<Habit>,
-    records: List<HabitRecord>
+    records: List<HabitRecord>,
+    skipByHabit: Map<Long, Set<String>> = emptyMap()
 ): List<HabitUi> {
     val today = todayString()
     val datesByHabit: Map<Long, Set<String>> =
@@ -833,7 +912,8 @@ private fun buildHabitUiList(
             name = habit.name,
             emoji = habit.emoji,
             colorArgb = habit.colorArgb,
-            streak = calcStreak(dates),
+            // 跳过的日期不计入连续天数（既不视为断签，也不计入完成）
+            streak = calcStreak(dates, skipByHabit[habit.id].orEmpty()),
             doneToday = dates.contains(today),
             last7 = last7Days(dates),
             pinned = habit.pinned,

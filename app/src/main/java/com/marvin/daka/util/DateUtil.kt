@@ -25,17 +25,23 @@ fun todayString(): String = LocalDate.now().toString()
  * 用户早上八点打开 App，昨晚打过了、今天还没打，连续天数应该还是原来的数。
  * 要是这里直接返回 0，用户每天早上都会看到连续记录归零，体验极差。
  */
-fun calcStreak(records: Set<String>, today: LocalDate = LocalDate.now()): Int {
+fun calcStreak(
+    records: Set<String>,
+    skipDates: Set<String> = emptySet(),
+    today: LocalDate = LocalDate.now()
+): Int {
     var cursor = today
 
-    // 今天没打卡不算断签，从昨天开始数
-    if (!records.contains(cursor.toString())) {
+    // 今天没打卡且没跳过 → 从昨天开始数（今天不算断签）；
+    // 今天被跳过（没打卡）则 cursor 留在今天，循环里当「不中断」处理但不计入
+    if (!records.contains(cursor.toString()) && !skipDates.contains(cursor.toString())) {
         cursor = cursor.minusDays(1)
     }
 
     var streak = 0
-    while (records.contains(cursor.toString())) {
-        streak++
+    // 已打卡 或 被跳过 都算「不中断」；但跳过的那天不计入连续天数
+    while (records.contains(cursor.toString()) || skipDates.contains(cursor.toString())) {
+        if (records.contains(cursor.toString())) streak++
         cursor = cursor.minusDays(1)
     }
     return streak
@@ -50,10 +56,12 @@ fun calcStreak(records: Set<String>, today: LocalDate = LocalDate.now()): Int {
  * @param dates 这个习惯所有打卡日期的集合，元素形如 "2026-08-30"
  * @return 最长连续天数；空集合返回 0
  */
-fun calcBestStreak(dates: Set<String>): Int {
-    if (dates.isEmpty()) return 0
+fun calcBestStreak(dates: Set<String>, skipDates: Set<String> = emptySet()): Int {
+    // 跳过的日期不算断签：直接从集合里挖掉，相邻判定自动「穿过」它们
+    val effective = dates - skipDates
+    if (effective.isEmpty()) return 0
     // ISO 日期字符串排序 == 按时间排序；转 epochDay 方便判断「是否相邻」
-    val epochs = dates.mapNotNull { runCatching { LocalDate.parse(it).toEpochDay() }.getOrNull() }
+    val epochs = effective.mapNotNull { runCatching { LocalDate.parse(it).toEpochDay() }.getOrNull() }
         .distinct()
         .sorted()
     var best = 1

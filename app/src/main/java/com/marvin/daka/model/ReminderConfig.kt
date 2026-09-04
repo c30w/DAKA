@@ -1,5 +1,6 @@
 package com.marvin.daka.model
 
+import com.marvin.daka.util.todayString
 import java.time.LocalDate
 
 /**
@@ -66,8 +67,44 @@ data class ReminderConfig(
         /** 「关闭提醒」的默认配置。时间沿用传入值，免得用户关了再开要重设 */
         fun disabled(hour: Int = 21, minute: Int = 0) =
             ReminderConfig(enabled = false, hour = hour, minute = minute)
+
+        /** 从一个附加提醒（reminders 表的一行）读出它的配置，编辑页用它做初始值 */
+        fun from(reminder: Reminder): ReminderConfig = ReminderConfig(
+            enabled = reminder.reminderEnabled,
+            hour = reminder.reminderHour,
+            minute = reminder.reminderMinute,
+            repeatType = reminder.repeatTypeEnum,
+            interval = reminder.repeatInterval,
+            weekdays = reminder.weekdaySet,
+            monthDays = reminder.monthDaySet,
+            endType = reminder.endTypeEnum,
+            times = reminder.repeatTimes,
+            endDate = reminder.remindEndDate,
+            startDate = reminder.remindStartDate
+        )
     }
 }
+
+/**
+ * 把提醒配置转成 reminders 表里的一行（附加提醒用）。
+ *
+ * 和 [Habit.withReminder] 是同一套映射的两个出口：withReminder 填 habits 的主提醒列，
+ * 这里填 reminders 表的附加提醒行。startDate 空则落今天，和主提醒保持一致。
+ */
+fun ReminderConfig.toReminder(habitId: Long): Reminder = Reminder(
+    habitId = habitId,
+    reminderEnabled = enabled,
+    reminderHour = hour,
+    reminderMinute = minute,
+    repeatType = repeatType.code,
+    repeatInterval = interval.coerceAtLeast(1),
+    repeatWeekdays = weekdays.sorted().joinToString(","),
+    repeatMonthDays = monthDays.sorted().joinToString(","),
+    endType = endType.code,
+    repeatTimes = times,
+    remindEndDate = endDate,
+    remindStartDate = startDate.ifBlank { todayString() }
+)
 
 /**
  * 日历上的**一次**提醒 —— 重复规则展开后的结果。

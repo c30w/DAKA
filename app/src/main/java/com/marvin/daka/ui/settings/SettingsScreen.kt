@@ -74,6 +74,7 @@ import com.marvin.daka.data.LanguagePrefs
 import com.marvin.daka.R
 import com.marvin.daka.BuildConfig
 import com.marvin.daka.model.Habit
+import com.marvin.daka.model.Reminder
 import com.marvin.daka.model.ReminderConfig
 import com.marvin.daka.reminder.NotificationHelper
 import com.marvin.daka.reminder.ReminderPrefs
@@ -260,6 +261,7 @@ fun SettingsScreen(
     }
 
     val habits by viewModel.habits.collectAsStateWithLifecycle()
+    val extraReminders by viewModel.reminders.collectAsStateWithLifecycle()
 
     // 正在编辑提醒的那个习惯
     var editingHabit by remember { mutableStateOf<Habit?>(null) }
@@ -363,6 +365,7 @@ fun SettingsScreen(
             // ---------------- 每习惯提醒 ----------------
             HabitReminderSection(
                 habits = habits.filter { it.archivedAt == null },
+                extraReminders = extraReminders,
                 onEdit = { editingHabit = it }
             )
 
@@ -733,6 +736,7 @@ private fun commitReminder(
 @Composable
 private fun HabitReminderSection(
     habits: List<Habit>,
+    extraReminders: List<Reminder> = emptyList(),
     onEdit: (Habit) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -775,7 +779,11 @@ private fun HabitReminderSection(
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             habits.forEach { habit ->
-                HabitReminderRow(habit = habit, onClick = { onEdit(habit) })
+                HabitReminderRow(
+                    habit = habit,
+                    extraCount = extraReminders.count { it.habitId == habit.id },
+                    onClick = { onEdit(habit) }
+                )
             }
         }
     }
@@ -785,6 +793,7 @@ private fun HabitReminderSection(
 @Composable
 private fun HabitReminderRow(
     habit: Habit,
+    extraCount: Int = 0,
     onClick: () -> Unit
 ) {
     Surface(
@@ -818,8 +827,13 @@ private fun HabitReminderRow(
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium
                 )
+                val moreText = if (extraCount > 0) {
+                    stringResource(R.string.reminder_extra_more, extraCount)
+                } else ""
                 Text(
-                    text = ReminderRule.describe(habit),
+                    text = listOf(ReminderRule.describe(habit), moreText)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = if (habit.reminderEnabled) {
                         MaterialTheme.colorScheme.onSurfaceVariant

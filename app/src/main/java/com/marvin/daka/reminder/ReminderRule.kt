@@ -1,7 +1,7 @@
 package com.marvin.daka.reminder
 
 import com.marvin.daka.model.EndType
-import com.marvin.daka.model.Habit
+import com.marvin.daka.model.ReminderLike
 import com.marvin.daka.model.RepeatType
 import com.marvin.daka.util.CnHoliday
 import java.time.LocalDate
@@ -37,14 +37,14 @@ object ReminderRule {
      * 只对 [EndType.AFTER_TIMES] 生效。举例：设了「提醒 10 次后停止」，
      * 已经响了 10 次 → 之后不再排期，也不再展开到日历上。
      */
-    fun isExhausted(habit: Habit): Boolean {
+    fun isExhausted(habit: ReminderLike): Boolean {
         if (habit.endTypeEnum != EndType.AFTER_TIMES) return false
         if (habit.repeatTimes <= 0) return false
         return habit.firedCount >= habit.repeatTimes
     }
 
     /** 「提醒 N 次后停止」还剩几次。没设次数上限就返回 null（表示不限）。 */
-    fun remainingTimes(habit: Habit): Int? {
+    fun remainingTimes(habit: ReminderLike): Int? {
         if (habit.endTypeEnum != EndType.AFTER_TIMES) return null
         if (habit.repeatTimes <= 0) return null
         return (habit.repeatTimes - habit.firedCount).coerceAtLeast(0)
@@ -58,7 +58,7 @@ object ReminderRule {
      * @param habit 习惯（含提醒设置）
      * @param date  待判断的日期
      */
-    fun matchesDate(habit: Habit, date: LocalDate): Boolean {
+    fun matchesDate(habit: ReminderLike, date: LocalDate): Boolean {
         if (!habit.reminderEnabled) return false
         if (isExhausted(habit)) return false
 
@@ -113,7 +113,7 @@ object ReminderRule {
      * @return 下次触发的毫秒时间戳；null = 这个习惯不需要再提醒了
      *         （关了、用完了、或者往后 400 天内一次都不匹配，比如「每月 31 号」）
      */
-    fun nextTriggerMillis(habit: Habit, now: LocalDateTime = LocalDateTime.now()): Long? {
+    fun nextTriggerMillis(habit: ReminderLike, now: LocalDateTime = LocalDateTime.now()): Long? {
         if (!habit.reminderEnabled) return null
         if (isExhausted(habit)) return null
 
@@ -140,7 +140,7 @@ object ReminderRule {
      * @param to   结束日期（含）
      * @return 这个习惯在 [from, to] 之间所有会提醒的日期，升序
      */
-    fun expand(habit: Habit, from: LocalDate, to: LocalDate): List<LocalDate> {
+    fun expand(habit: ReminderLike, from: LocalDate, to: LocalDate): List<LocalDate> {
         if (!habit.reminderEnabled) return emptyList()
         if (to.isBefore(from)) return emptyList()
 
@@ -176,7 +176,7 @@ object ReminderRule {
      * @return RRULE 字符串，例如 "FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=10"；
      *         规则无法表达时返回 null（调用方按「单次事件」处理）
      */
-    fun toRRule(habit: Habit): String? {
+    fun toRRule(habit: ReminderLike): String? {
         val freqPart = when (habit.repeatTypeEnum) {
             RepeatType.DAILY -> "FREQ=DAILY"
 
@@ -243,7 +243,7 @@ object ReminderRule {
     // ------------------------------------------------------------------
 
     /** 把一套提醒设置说成人话，给列表和日历用。例：每周一、三、五 07:30 · 提醒 10 次后停止 */
-    fun describe(habit: Habit): String {
+    fun describe(habit: ReminderLike): String {
         if (!habit.reminderEnabled) return "未开启提醒"
 
         val time = "%02d:%02d".format(habit.reminderHour, habit.reminderMinute)

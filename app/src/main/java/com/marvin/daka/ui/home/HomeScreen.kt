@@ -81,6 +81,7 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marvin.daka.audio.SoundEffectPlayer
 import com.marvin.daka.R
+import androidx.compose.material.icons.filled.SkipNext
 import com.marvin.daka.model.HabitUi
 import com.marvin.daka.ui.theme.DAKATheme
 import kotlinx.coroutines.CoroutineScope
@@ -156,6 +157,8 @@ fun HomeScreen(
     // 它比 collectAsState 多一件事——App 退到后台时自动停止收集，省电。
     val items by viewModel.items.collectAsStateWithLifecycle()
     val sections by viewModel.sections.collectAsStateWithLifecycle()
+    // 跳过记录：操作面板判断「今天是否已跳过」用
+    val skips by viewModel.skips.collectAsStateWithLifecycle()
 
     // 今日全部完成时播一段悦耳庆祝音（只在「未全完成 → 全完成」跃迁时播一次，不重复）
     val wasAllDone = remember { mutableStateOf(items.isNotEmpty() && items.all { it.doneToday }) }
@@ -233,8 +236,17 @@ fun HomeScreen(
 
     // 操作面板：长按后原地松手弹出（拖动手势没被识别成「拖」时）
     sheetHabit?.let { habit ->
+        val today = LocalDate.now().toString()
+        val skippedToday = skips.any { it.habitId == habit.id && it.skipDate == today }
         HabitActionSheet(
             habit = habit,
+            // 已打卡就不能再跳过（两者互斥）；跳过了可以随时反悔取消
+            showSkip = !habit.doneToday,
+            skippedToday = skippedToday,
+            onSkipToday = {
+                if (skippedToday) viewModel.unskipToday(habit.id) else viewModel.skipToday(habit.id)
+                sheetHabit = null
+            },
             onDismiss = { sheetHabit = null },
             onEdit = {
                 sheetHabit = null
@@ -290,6 +302,9 @@ fun HomeScreen(
 @Composable
 private fun HabitActionSheet(
     habit: HabitUi,
+    showSkip: Boolean = false,
+    skippedToday: Boolean = false,
+    onSkipToday: () -> Unit = {},
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
     onTogglePin: () -> Unit,
@@ -335,6 +350,17 @@ private fun HabitActionSheet(
             label = if (habit.pinned) stringResource(R.string.sheet_unpin) else stringResource(R.string.sheet_pin),
             onClick = onTogglePin
         )
+        if (showSkip) {
+            SheetAction(
+                icon = { Icon(Icons.Filled.SkipNext, contentDescription = null) },
+                label = if (skippedToday) {
+                    stringResource(R.string.sheet_unskip_today)
+                } else {
+                    stringResource(R.string.sheet_skip_today)
+                },
+                onClick = onSkipToday
+            )
+        }
         SheetAction(
             icon = { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) },
             label = stringResource(R.string.sheet_move_up),

@@ -3,7 +3,7 @@ package com.marvin.daka.model
 import kotlinx.serialization.Serializable
 
 /** 当前备份文件格式的版本号。将来改了字段结构就 +1，导入时据此判断能不能读。 */
-const val BACKUP_VERSION = 1
+const val BACKUP_VERSION = 2
 
 /**
  * 一份完整的备份内容。
@@ -26,5 +26,9 @@ data class BackupData(
     val version: Int = BACKUP_VERSION,
     val exportedAt: Long = System.currentTimeMillis(),
     val habits: List<Habit> = emptyList(),
-    val records: List<HabitRecord> = emptyList()
+    val records: List<HabitRecord> = emptyList(),
+    /** 附加提醒（多提醒用）。v2 新增；老版本备份没有这一块，反序列化为空列表 */
+    val reminders: List<Reminder> = emptyList(),
+    /** 跳过当天记录。v2 新增；同上 */
+    val skips: List<HabitSkip> = emptyList()
 )

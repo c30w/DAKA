@@ -38,23 +38,23 @@ data class Habit(
     // ---------- V3：每习惯独立提醒 ----------
 
     /** 这个习惯要不要单独提醒。默认关——新建习惯不该自作主张给用户发通知 */
-    val reminderEnabled: Boolean = false,
+    override val reminderEnabled: Boolean = false,
 
     /** 提醒时间：小时（0-23），默认 21 点 */
-    val reminderHour: Int = 21,
+    override val reminderHour: Int = 21,
 
     /** 提醒时间：分钟（0-59） */
-    val reminderMinute: Int = 0,
+    override val reminderMinute: Int = 0,
 
     /**
      * 重复方式，取值见 [RepeatType.code]。
      * 存 Int 而不是枚举，是因为 Room 默认只能存基础类型；
      * 要存枚举得额外写 TypeConverter，为 6 个值不值得。
      */
-    val repeatType: Int = RepeatType.DAILY.code,
+    override val repeatType: Int = RepeatType.DAILY.code,
 
     /** 每 N 天提醒一次（仅 [RepeatType.INTERVAL_DAYS] 用）。1 = 每天 */
-    val repeatInterval: Int = 1,
+    override val repeatInterval: Int = 1,
 
     /**
      * 每周提醒的星期几，逗号分隔的 ISO 星期数字（周一=1 … 周日=7）。
@@ -64,21 +64,21 @@ data class Habit(
      * 为什么是字符串而不是 List？Room 存不了 List，得写 TypeConverter。
      * 逗号分隔的字符串老土但零成本，数据量和查询复杂度都低到可以忽略。
      */
-    val repeatWeekdays: String = "",
+    override val repeatWeekdays: String = "",
 
     /** 每月提醒的几号，逗号分隔（例："1,15"）。仅 [RepeatType.MONTHLY] 用 */
-    val repeatMonthDays: String = "",
+    override val repeatMonthDays: String = "",
 
     /**
      * 结束方式，取值见 [EndType.code]。
      */
-    val endType: Int = EndType.NEVER.code,
+    override val endType: Int = EndType.NEVER.code,
 
     /** [EndType.AFTER_TIMES]：总共提醒多少次后停止。0 = 不限 */
-    val repeatTimes: Int = 0,
+    override val repeatTimes: Int = 0,
 
     /** [EndType.ON_DATE]：结束日期 "yyyy-MM-dd"，空字符串 = 不限 */
-    val remindEndDate: String = "",
+    override val remindEndDate: String = "",
 
     /**
      * 已经提醒过多少次。配合 [repeatTimes] 判断「该停了」。
@@ -86,14 +86,14 @@ data class Habit(
      * ⚠️ 这是**唯一一个会被闹钟自己改写的字段**：
      * 每次提醒触发后 +1。别把它当「展示用数据」，它是状态机的一部分。
      */
-    val firedCount: Int = 0,
+    override val firedCount: Int = 0,
 
     /**
      * 提醒生效的起始日期 "yyyy-MM-dd"，默认空 = 从今天算起。
      * [RepeatType.INTERVAL_DAYS] 需要它当锚点：
      * 「每 3 天」是从哪天开始数的，必须有据可依，否则每次重排都会漂。
      */
-    val remindStartDate: String = "",
+    override val remindStartDate: String = "",
 
     // ---------- V4：分类 / 置顶 / 排序 ----------
 
@@ -119,24 +119,30 @@ data class Habit(
      * ⚠️ 加列必须给默认值（这里 ""），否则 Room 读老行时会因「这列是空的」直接崩。
      */
     val note: String = ""
-) {
+) : ReminderLike {
+
+    /** 主提醒：habitId 就是自己的 id（接口要求的定位字段） */
+    override val habitId: Long get() = id
+
+    /** 主提醒的 reminderId 固定 0；reminders 表里的附加提醒用自己的主键 */
+    override val reminderId: Long get() = 0
 
     /** 重复方式枚举。数据库里存的是 Int，读成对象后用这个拿枚举。 */
-    val repeatTypeEnum: RepeatType get() = RepeatType.of(repeatType)
+    override val repeatTypeEnum: RepeatType get() = RepeatType.of(repeatType)
 
     /** 结束方式枚举 */
-    val endTypeEnum: EndType get() = EndType.of(endType)
+    override val endTypeEnum: EndType get() = EndType.of(endType)
 
     /** 每周星期几的数字集合（1=周一 … 7=周日）。解析失败返回空集合 */
-    val weekdaySet: Set<Int>
+    override val weekdaySet: Set<Int>
         get() = RepeatParse.intList(repeatWeekdays).toSet()
 
     /** 每月几号的集合。解析失败返回空集合 */
-    val monthDaySet: Set<Int>
+    override val monthDaySet: Set<Int>
         get() = RepeatParse.intList(repeatMonthDays).filter { it in 1..31 }.toSet()
 
     /** 提醒起始日期。没设就从「创建那天」算 */
-    val effectiveStartDate: String
+    override val effectiveStartDate: String
         get() = remindStartDate.ifBlank {
             java.time.Instant.ofEpochMilli(createdAt)
                 .atZone(java.time.ZoneId.systemDefault())

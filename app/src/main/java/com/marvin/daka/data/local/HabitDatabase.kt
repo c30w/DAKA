@@ -8,6 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.marvin.daka.model.Habit
 import com.marvin.daka.model.HabitRecord
+import com.marvin.daka.model.HabitSkip
+import com.marvin.daka.model.Reminder
 
 /**
  * 数据库本体。
@@ -21,22 +23,26 @@ import com.marvin.daka.model.HabitRecord
  * 类是 abstract 的，只声明获取 DAO 的抽象方法 —— 实现由 Room 生成。
  */
 @Database(
-    entities = [Habit::class, HabitRecord::class],
-    // version 5：V5 给 habits 表加了 note 列（备注），见下面的 MIGRATION_4_5。
+    entities = [Habit::class, HabitRecord::class, Reminder::class, HabitSkip::class],
+    // version 7：V6 加 reminders 表（附加提醒），V7 加 habit_skips 表（跳过当天）。
     //
     // 演进记录：
     //   v1 → v2：M5 加 colorArgb 列
     //   v2 → v3：V3 加提醒字段组
     //   v3 → v4：V4 加分类/排序/置顶
     //   v4 → v5：V5 加备注
+    //   v5 → v6：V6 加 reminders 表（每个习惯可有多条提醒）
+    //   v6 → v7：V7 加 habit_skips 表（跳过当天，跳过的不提醒、不断签）
     //
     // ⚠️ 改表结构必须 +1，否则真机上升级会直接崩（Room 会校验 schema 哈希）。
-    version = 5,
+    version = 7,
     exportSchema = false
 )
 abstract class HabitDatabase : RoomDatabase() {
     abstract fun habitDao(): HabitDao
     abstract fun habitRecordDao(): HabitRecordDao
+    abstract fun reminderDao(): ReminderDao
+    abstract fun habitSkipDao(): HabitSkipDao
 }
 
 /**
@@ -106,6 +112,68 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
 }
 
 /**
+ * v5 → v6 迁移：新建附加提醒表（reminders）。
+ *
+ * 一个习惯可以设多条提醒：主提醒留在 habits 表的提醒列上（老结构不动，
+ * 老数据零迁移成本），多出来的每条存一行在这里。
+ *
+ * ⚠️ 建表 SQL 必须和 [Reminder] 实体**逐字段一致**——Room 在迁移后会
+ * 校验实际表结构和实体声明是否完全对得上（列名、类型、非空、外键、索引），
+ * 少一个列、错一个 NOT NULL 都会让 App 启动即崩。
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS `reminders` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `habitId` INTEGER NOT NULL,
+                `reminderEnabled` INTEGER NOT NULL,
+                `reminderHour` INTEGER NOT NULL,
+                `reminderMinute` INTEGER NOT NULL,
+                `repeatType` INTEGER NOT NULL,
+                `repeatInterval` INTEGER NOT NULL,
+                `repeatWeekdays` TEXT NOT NULL,
+                `repeatMonthDays` TEXT NOT NULL,
+                `endType` INTEGER NOT NULL,
+                `repeatTimes` INTEGER NOT NULL,
+                `remindEndDate` TEXT NOT NULL,
+                `firedCount` INTEGER NOT NULL,
+                `remindStartDate` TEXT NOT NULL,
+                FOREIGN KEY(`habitId`) REFERENCES `habits`(`id`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE
+            )"""
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_reminders_habitId` ON `reminders` (`habitId`)"
+        )
+    }
+}
+
+/**
+ * v6 → v7 迁移：新建跳过当天表（habit_skips）。
+ *
+ * 一行 = 某习惯某天被用户主动跳过：那天不算完成、也不算断签。
+ * (habitId, skipDate) 上建唯一索引，重复点「跳过」不会插出两条。
+ */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS `habit_skips` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `habitId` INTEGER NOT NULL,
+                `skipDate` TEXT NOT NULL,
+                FOREIGN KEY(`habitId`) REFERENCES `habits`(`id`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE
+            )"""
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_habit_skips_habitId_skipDate` "
+                + "ON `habit_skips` (`habitId`, `skipDate`)"
+        )
+    }
+}
+
+/**
  * 数据库单例。
  *
  * 为什么必须单例？Room 实例很重（持有数据库连接、线程池），
@@ -136,7 +204,7 @@ object DatabaseProvider {
                 // 属于宁可清空也不要启动崩溃的最后兜底。
                 .fallbackToDestructiveMigration(true)
                 // 正式迁移：保住已有数据
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .build()
                 .also { instance = it }
         }

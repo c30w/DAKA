@@ -62,6 +62,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.marvin.daka.R
+import androidx.compose.material.icons.filled.Close
+import com.marvin.daka.ui.reminder.ReminderEditorDialog
+import com.marvin.daka.reminder.ReminderRule
+import com.marvin.daka.model.toReminder
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.Surface
 import com.marvin.daka.audio.SoundEffectPlayer
 import com.marvin.daka.data.AppPrefs
 import com.marvin.daka.model.Habit
@@ -100,12 +106,14 @@ import kotlinx.coroutines.launch
 fun CreateHabitScreen(
     /** 传非 null = 编辑模式：预填这个习惯的全部设置，保存走 onUpdate */
     editing: Habit? = null,
+    /** 编辑模式下该习惯的附加提醒（reminders 表里的）。新建模式忽略 */
+    editingExtras: List<ReminderConfig> = emptyList(),
     defaultReminderTime: Pair<Int, Int> = 21 to 0,
     onSave: (
         name: String,
         emoji: String,
         colorArgb: Long,
-        reminder: ReminderConfig,
+        reminders: List<ReminderConfig>,
         category: String,
         note: String
     ) -> Unit = { _, _, _, _, _, _ -> },
@@ -114,7 +122,7 @@ fun CreateHabitScreen(
         name: String,
         emoji: String,
         colorArgb: Long,
-        reminder: ReminderConfig,
+        reminders: List<ReminderConfig>,
         category: String,
         note: String
     ) -> Unit = { _, _, _, _, _, _, _ -> },
@@ -164,6 +172,13 @@ fun CreateHabitScreen(
             }
         )
     }
+
+    // ---- 多提醒（V1.3.8）：主提醒之外可以再加几条 ----
+    // 编辑模式以 habitId 为 key 快照一次：reminders Flow 和 habits Flow 同库同源，
+    // editing 非 null 时它几乎必然已就绪；此后增删只改本地状态，保存时整体提交。
+    var extraReminders by remember(editing?.id) { mutableStateOf(editingExtras) }
+    // 附加提醒编辑弹窗：null = 不弹；-1 = 新增；>=0 = 编辑第 index 条
+    var extraEditorIndex by remember { mutableStateOf<Int?>(null) }
 
     // V5：草稿的读写入口。只在**新建模式**用——编辑模式改的是已经存在的习惯，
     // 不存在「草稿」这回事，也绝不能让编辑页把用户另一份未提交的草稿冲掉。
@@ -432,6 +447,46 @@ fun CreateHabitScreen(
                 onChange = { reminder = it }
             )
 
+            // ---- 附加提醒（V1.3.8 多提醒）----
+            // 主提醒在上面整块编辑；这里只做「列表 + 增删改弹窗」，
+            // 弹窗复用 ReminderEditorDialog（和设置页同一套），不重复造编辑器
+            Spacer(modifier = Modifier.height(20.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = stringResource(R.string.reminder_extra_section),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+            if (extraReminders.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.reminder_extra_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+                extraReminders.forEachIndexed { index, extra ->
+                    ExtraReminderRow(
+                        config = extra,
+                        onEdit = { extraEditorIndex = index },
+                        onDelete = {
+                            extraReminders = extraReminders.toMutableList().apply { removeAt(index) }
+                        }
+                    )
+                    if (index < extraReminders.lastIndex) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            OutlinedButton(onClick = { extraEditorIndex = -1 }) {
+                Icon(Icons.Filled.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(stringResource(R.string.reminder_extra_add))
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
 
             // ---- 保存 ----
@@ -442,12 +497,15 @@ fun CreateHabitScreen(
                     // 先立 flag，挡住那个还在 400ms 倒计时的草稿自动保存——
                     // 否则它会紧接着把刚清掉的草稿又写回去
                     submitted = true
+                    // 主提醒 + 附加提醒一起提交，列表第一项会被当主提醒
+                    val allReminders = listOf(reminder) + extraReminders
                     if (isEditing) {
                         onUpdate(
-                            editing.id, name, selectedEmoji, selectedColor, reminder, category, note
+                            editing.id, name, selectedEmoji, selectedColor,
+                            allReminders, category, note
                         )
                     } else {
-                        onSave(name, selectedEmoji, selectedColor, reminder, category, note)
+                        onSave(name, selectedEmoji, selectedColor, allReminders, category, note)
                     }
                 },
                 enabled = name.isNotBlank(),
@@ -458,6 +516,28 @@ fun CreateHabitScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+
+    // ---- 附加提醒编辑弹窗（新增 / 编辑共用） ----
+    extraEditorIndex?.let { index ->
+        ReminderEditorDialog(
+            habitName = name.ifBlank { stringResource(R.string.reminder_extra_add) },
+            initial = if (index >= 0) {
+                extraReminders[index]
+            } else {
+                // 新增：时间默认沿用主提醒的，用户多半想让几条提醒挨着响
+                ReminderConfig.disabled(hour = reminder.hour, minute = reminder.minute)
+            },
+            onConfirm = { config ->
+                if (index >= 0) {
+                    extraReminders = extraReminders.toMutableList().apply { set(index, config) }
+                } else {
+                    extraReminders = extraReminders + config
+                }
+                extraEditorIndex = null
+            },
+            onDismiss = { extraEditorIndex = null }
+        )
     }
 
     // ---- 更多图标对话框 ----
@@ -812,5 +892,52 @@ fun CreateHabitScreenPreview() {
 fun CreateHabitScreenDarkPreview() {
     DAKATheme {
         CreateHabitScreen(onBack = {})
+    }
+}
+
+
+/**
+ * 附加提醒的一行摘要：时间 + 规则描述 + 移除。
+ *
+ * 规则描述复用 [ReminderRule.describe]（它吃 ReminderLike），
+ * 把 ReminderConfig 临时转成 Reminder 即可——不为「给人看的描述」再造一套逻辑。
+ */
+@Composable
+private fun ExtraReminderRow(
+    config: ReminderConfig,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Surface(
+        onClick = onEdit,
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "%02d:%02d".format(config.hour, config.minute),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = ReminderRule.describe(config.toReminder(habitId = 0)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.reminder_extra_delete)
+                )
+            }
+        }
     }
 }

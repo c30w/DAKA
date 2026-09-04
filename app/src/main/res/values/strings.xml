@@ -161,6 +161,13 @@
     <string name="reminder_on_desc">已开启</string>
     <string name="reminder_off_desc">关闭时不会收到任何通知</string>
     <string name="reminder_time_section">提醒时间</string>
+    <string name="reminder_extra_section">更多提醒时间</string>
+    <string name="reminder_extra_add">添加提醒时间</string>
+    <string name="reminder_extra_hint">一个习惯可以设多个提醒时间，比如早晚各一次</string>
+    <string name="reminder_extra_more">还设了 %1$d 条提醒</string>
+    <string name="reminder_extra_delete">移除这条提醒</string>
+    <string name="sheet_skip_today">跳过今天</string>
+    <string name="sheet_unskip_today">已跳过，点此取消</string>
     <string name="reminder_repeat_section">重复方式</string>
     <string name="reminder_every_day">每天都提醒</string>
     <string name="reminder_interval_label">间隔</string>
