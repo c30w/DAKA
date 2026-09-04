@@ -759,6 +759,33 @@ class HabitViewModel(
     }
 
     /**
+     * #7 生成打卡明细的 CSV 内容。
+     *
+     * 三列：习惯、分类、日期。开头带 UTF-8 BOM——没有 BOM 的话 Excel / WPS
+     * 会按系统编码猜，中文必乱码，BOM 是唯一稳妥的做法。
+     *
+     * 为什么用明细而不是「习惯 × 日期」大矩阵：矩阵的列数等于天数，
+     * 导出一年就是 365 列，Excel 里没法用；明细行随便透视、随便筛选。
+     */
+    suspend fun buildCsv(): String = withContext(Dispatchers.IO) {
+        val habits = habitDao.getAllForBackup()
+        val byId = habits.associateBy { it.id }
+        val lines = buildList {
+            add("习惯,分类,日期")
+            recordDao.getAllForBackup()
+                .sortedBy { it.date }
+                .forEach { record ->
+                    val habit = byId[record.habitId]
+                    val name = habit?.name ?: "（已删除的习惯）"
+                    val category = habit?.category ?: ""
+                    // 逗号/引号/换行都会破坏 CSV 结构，逐字段转义
+                    add("${csvEscape(name)},${csvEscape(category)},${record.date}")
+                }
+        }
+        "\uFEFF" + lines.joinToString("\r\n")
+    }
+
+    /**
      * V4.2：恢复前**只读不写**地解析备份文件，给出预览摘要。
      *
      * 为什么不直接恢复？恢复是要改库的操作，用户应该先看到
@@ -822,6 +849,12 @@ class HabitViewModel(
  */
 private val PRETTY_JSON = Json { prettyPrint = true }
 private val LENIENT_JSON = Json { ignoreUnknownKeys = true }
+
+/** CSV 字段转义：含逗号/引号/换行时用引号包裹，内部引号翻倍（RFC 4180） */
+private fun csvEscape(raw: String): String =
+    if (raw.contains(',') || raw.contains('"') || raw.contains('\n')) {
+        "\"" + raw.replace("\"", "\"\"") + "\""
+    } else raw
 
 /**
  * 新建习惯的「一份草稿」——批量导入时界面交给 ViewModel 的最小信息。

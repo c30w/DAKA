@@ -72,6 +72,13 @@ import com.marvin.daka.audio.SoundEffectPlayer
 import com.marvin.daka.data.AppPrefs
 import com.marvin.daka.data.LanguagePrefs
 import com.marvin.daka.R
+import com.marvin.daka.ui.theme.DEFAULT_ACCENT_COLOR
+import com.marvin.daka.ui.theme.CORNER_STANDARD
+import com.marvin.daka.ui.theme.CORNER_SQUARE
+import com.marvin.daka.ui.theme.CORNER_ROUND
+import com.marvin.daka.ui.theme.AccentPalette
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.foundation.border
 import com.marvin.daka.BuildConfig
 import com.marvin.daka.model.Habit
 import com.marvin.daka.model.Reminder
@@ -260,8 +267,60 @@ fun SettingsScreen(
         }
     }
 
+    // #7：CSV 导出。和备份同一条 SAF 通道，只是格式换成 text/csv
+    val csvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+
+        scope.launch {
+            busy = true
+            val result = runCatching {
+                val csv = viewModel.buildCsv()
+                context.contentResolver.openOutputStream(uri)?.bufferedWriter()
+                    ?.use { it.write(csv) }
+                    ?: error("打不开目标文件")
+            }
+            busy = false
+            result.fold(
+                onSuccess = {
+                    val action = snackbarHostState.showSnackbar(
+                        message = context.getString(R.string.snack_csv_exported),
+                        actionLabel = context.getString(R.string.common_share),
+                        duration = SnackbarDuration.Long
+                    )
+                    if (action == SnackbarResult.ActionPerformed) {
+                        val share = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/csv"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(
+                            Intent.createChooser(share, context.getString(R.string.common_share))
+                        )
+                    }
+                },
+                onFailure = {
+                    snackbarHostState.showSnackbar(context.getString(R.string.snack_export_fail, it.message))
+                }
+            )
+        }
+    }
+
     val habits by viewModel.habits.collectAsStateWithLifecycle()
     val extraReminders by viewModel.reminders.collectAsStateWithLifecycle()
+
+    // #9 外观自定义：强调色 + 圆角风格。改完即时重组，不重建 Activity
+    val accentColor by appPrefs.accentColor.collectAsStateWithLifecycle(
+        initialValue = DEFAULT_ACCENT_COLOR
+    )
+    val cornerStyle by appPrefs.cornerStyle.collectAsStateWithLifecycle(
+        initialValue = CORNER_STANDARD
+    )
+    var showAccentDialog by remember { mutableStateOf(false) }
+    var showCornerDialog by remember { mutableStateOf(false) }
+    // #10：迁移到新设备的步骤说明
+    var showMigrateDialog by remember { mutableStateOf(false) }
 
     // 正在编辑提醒的那个习惯
     var editingHabit by remember { mutableStateOf<Habit?>(null) }
@@ -435,6 +494,22 @@ fun SettingsScreen(
                 enabled = true,
                 onClick = { showThemeDialog = true }
             )
+            Spacer(modifier = Modifier.height(12.dp))
+            // #9 强调色：改 primary 系（按钮/进度/选中态），即时生效
+            SettingsItem(
+                title = stringResource(R.string.settings_accent),
+                subtitle = stringResource(R.string.settings_accent_desc),
+                enabled = true,
+                onClick = { showAccentDialog = true }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            // #9 圆角风格：整包换 Shapes（Surface/按钮/卡片的全局圆角）
+            SettingsItem(
+                title = stringResource(R.string.settings_corner),
+                subtitle = cornerLabel(cornerStyle),
+                enabled = true,
+                onClick = { showCornerDialog = true }
+            )
 
             Spacer(modifier = Modifier.height(20.dp))
             HorizontalDivider()
@@ -473,6 +548,23 @@ fun SettingsScreen(
                 text = stringResource(R.string.settings_backup_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            // #7：CSV 导出（Excel / WPS 可直接打开分析）
+            SettingsItem(
+                title = stringResource(R.string.settings_export_csv),
+                subtitle = stringResource(R.string.settings_export_csv_desc),
+                enabled = !busy,
+                onClick = { csvLauncher.launch("daka-records-${LocalDate.now()}.csv") }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            // #10：迁移到新设备（步骤指引 + 复用上面的备份/恢复按钮）
+            SettingsItem(
+                title = stringResource(R.string.settings_migrate),
+                subtitle = stringResource(R.string.settings_migrate_desc),
+                enabled = true,
+                onClick = { showMigrateDialog = true }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -607,6 +699,84 @@ fun SettingsScreen(
             selected = themeMode,
             onSelected = { mode -> scope.launch { appPrefs.setThemeMode(mode) } },
             onDismiss = { showThemeDialog = false }
+        )
+    }
+
+    // #9 强调色选择：8 色圆形色块，2 行 × 4 列，选中描边 + 打勾
+    if (showAccentDialog) {
+        AlertDialog(
+            onDismissRequest = { showAccentDialog = false },
+            confirmButton = {
+                TextButton(onClick = { showAccentDialog = false }) {
+                    Text(stringResource(R.string.common_confirm))
+                }
+            },
+            title = { Text(stringResource(R.string.settings_accent)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AccentPalette.chunked(4).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            row.forEach { argb ->
+                                val selected = argb == accentColor
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(argb))
+                                        .border(
+                                            width = if (selected) 3.dp else 0.dp,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            shape = CircleShape
+                                        )
+                                        .clickable {
+                                            scope.launch { appPrefs.setAccentColor(argb) }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (selected) {
+                                        Icon(
+                                            Icons.Filled.Check,
+                                            contentDescription = null,
+                                            tint = Color.White
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    // #9 圆角风格：三档单选，选中即时重算全局 Shapes
+    if (showCornerDialog) {
+        SingleChoiceDialog(
+            title = stringResource(R.string.settings_corner),
+            options = listOf(
+                CORNER_STANDARD to stringResource(R.string.settings_corner_standard),
+                CORNER_SQUARE to stringResource(R.string.settings_corner_square),
+                CORNER_ROUND to stringResource(R.string.settings_corner_round)
+            ),
+            selected = cornerStyle,
+            onSelected = { style -> scope.launch { appPrefs.setCornerStyle(style) } },
+            onDismiss = { showCornerDialog = false }
+        )
+    }
+
+    // #10 迁移到新设备：三步指引。导出/导入直接复用上面的备份恢复按钮
+    if (showMigrateDialog) {
+        AlertDialog(
+            onDismissRequest = { showMigrateDialog = false },
+            confirmButton = {
+                TextButton(onClick = { showMigrateDialog = false }) {
+                    Text(stringResource(R.string.common_confirm))
+                }
+            },
+            title = { Text(stringResource(R.string.settings_migrate)) },
+            text = {
+                Text(text = stringResource(R.string.settings_migrate_steps))
+            }
         )
     }
 }
@@ -1105,3 +1275,14 @@ fun SettingsItemPreview() {
         }
     }
 }
+
+
+/** #9 圆角风格档位 → 本地化标签（设置行副标题用） */
+@Composable
+private fun cornerLabel(style: String): String = stringResource(
+    when (style) {
+        CORNER_SQUARE -> R.string.settings_corner_square
+        CORNER_ROUND -> R.string.settings_corner_round
+        else -> R.string.settings_corner_standard
+    }
+)

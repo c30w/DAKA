@@ -69,6 +69,13 @@ class AppPrefs(private val context: Context) {
         val DRAFT_EMOJI = stringPreferencesKey("draft_emoji")
         val DRAFT_COLOR = longPreferencesKey("draft_color")
         val DRAFT_CATEGORY = stringPreferencesKey("draft_category")
+
+        /**
+         * #9 外观自定义：强调色（ARGB Long）与圆角风格档位。
+         * 档位常量在 ui.theme（CORNER_STANDARD/SQUARE/ROUND），这里只存 Int。
+         */
+        val ACCENT_COLOR = longPreferencesKey("accent_color")
+        val CORNER_STYLE = stringPreferencesKey("corner_style")
     }
 
     /** 用户自定义的分类顺序。空列表 = 没自定义过，按内置顺序展示 */
@@ -117,6 +124,26 @@ class AppPrefs(private val context: Context) {
     val themeMode: Flow<String> = context.appDataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { prefs -> prefs[Keys.THEME_MODE] ?: "device" }
+
+    // ---------------- #9 外观自定义 ----------------
+
+    /** 强调色（ARGB Long）。默认 0xFF0F8A7C 薄荷青绿（常量定义在 ui.theme） */
+    val accentColor: Flow<Long> = context.appDataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { prefs -> prefs[Keys.ACCENT_COLOR] ?: 0xFF0F8A7C }
+
+    suspend fun setAccentColor(color: Long) {
+        context.appDataStore.edit { it[Keys.ACCENT_COLOR] = color }
+    }
+
+    /** 圆角风格档位（"standard"/"square"/"round"）。默认标准 */
+    val cornerStyle: Flow<String> = context.appDataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { prefs -> prefs[Keys.CORNER_STYLE] ?: "standard" }
+
+    suspend fun setCornerStyle(style: String) {
+        context.appDataStore.edit { it[Keys.CORNER_STYLE] = style }
+    }
 
     suspend fun setThemeMode(mode: String) {
         context.appDataStore.edit {

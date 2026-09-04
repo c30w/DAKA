@@ -22,7 +22,9 @@ import com.marvin.daka.model.Habit
 import com.marvin.daka.model.HabitRecord
 import com.marvin.daka.ui.home.HabitViewModelFactory
 import com.marvin.daka.ui.navigation.DakaNavGraph
+import com.marvin.daka.ui.theme.CORNER_STANDARD
 import com.marvin.daka.ui.theme.DAKATheme
+import com.marvin.daka.ui.theme.DEFAULT_ACCENT_COLOR
 import com.marvin.daka.ui.theme.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -132,6 +134,13 @@ class MainActivity : ComponentActivity() {
             val themeMode by appPrefs.themeMode.collectAsStateWithLifecycle(
                 initialValue = ThemeMode.DEVICE
             )
+            // #9 外观自定义：强调色与圆角，同样改完即时重组
+            val accentColor by appPrefs.accentColor.collectAsStateWithLifecycle(
+                initialValue = DEFAULT_ACCENT_COLOR
+            )
+            val cornerStyle by appPrefs.cornerStyle.collectAsStateWithLifecycle(
+                initialValue = CORNER_STANDARD
+            )
             val darkTheme = ThemeMode.isDark(themeMode, isSystemInDarkTheme())
 
             // 状态栏图标的深浅要手动跟一次主题。
@@ -145,7 +154,7 @@ class MainActivity : ComponentActivity() {
 
             val pending by pendingShortcut.collectAsStateWithLifecycle()
 
-            DAKATheme(themeMode = themeMode) {
+            DAKATheme(themeMode = themeMode, accentColor = accentColor, cornerStyle = cornerStyle) {
                 DakaNavGraph(
                     factory = factory,
                     shortcutAction = pending,

@@ -83,6 +83,12 @@
     <string name="settings_calendar">提醒日历</string>
     <string name="settings_calendar_desc">按月查看全部提醒，并同步到手机日历（安卓日历 / 谷歌日历）</string>
     <string name="settings_backup">备份与恢复</string>
+    <string name="settings_accent">强调色</string>
+    <string name="settings_accent_desc">按钮、进度、选中态的主色调</string>
+    <string name="settings_corner">圆角风格</string>
+    <string name="settings_corner_standard">标准</string>
+    <string name="settings_corner_square">方正（硬朗）</string>
+    <string name="settings_corner_round">圆润（柔和）</string>
     <string name="settings_backup_desc">备份：把全部习惯和打卡记录存成 JSON 文件；恢复：选择备份文件，先预览内容再确认。</string>
     <string name="settings_backup_btn">备份</string>
     <string name="settings_restore_btn">恢复</string>
@@ -106,6 +112,12 @@
 
     <string name="snack_alarm_perm">需要「闹钟和提醒」权限才能准时提醒</string>
     <string name="snack_notif_perm">没给通知权限，提醒不会响</string>
+    <string name="settings_export_csv">导出 CSV（Excel 可开）</string>
+    <string name="settings_export_csv_desc">把全部打卡记录导出成表格：习惯、分类、日期。用 Excel / WPS 打开可随意统计。</string>
+    <string name="snack_csv_exported">CSV 已导出</string>
+    <string name="settings_migrate">迁移到新设备</string>
+    <string name="settings_migrate_desc">导出备份并分享到新手机，在新手机里恢复即可，数据一点不丢。</string>
+    <string name="settings_migrate_steps">第一步：在这台手机点「备份」，存好 JSON 文件后点「分享」，通过微信文件传输助手 / 网盘发到新手机。\n\n第二步：新手机安装 DAKA（GitHub Release 下载 APK）。\n\n第三步：新手机的 DAKA 里点「恢复」，选中那份备份确认合并。习惯、记录、提醒、跳过记录全都在。</string>
     <string name="snack_exported">备份已导出</string>
     <string name="snack_export_fail">导出失败：%1$s</string>
     <string name="import_title">确认恢复这份备份？</string>
