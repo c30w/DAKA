@@ -255,6 +255,8 @@
     <string name="stats_overall_rate">整体完成率</string>
     <string name="stats_perfect_days">全勤天数</string>
     <string name="stats_avg_done">日均完成</string>
+    <string name="stats_best_streak">最佳连击</string>
+    <string name="calendar_heatmap_hint">颜色越深 = 当天打卡越全</string>
     <string name="stats_week_title">近 7 天</string>
     <string name="stats_month_title">近 30 天完成率</string>
     <string name="stats_year_title">近一年</string>

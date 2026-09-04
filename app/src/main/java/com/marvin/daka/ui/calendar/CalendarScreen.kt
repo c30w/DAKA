@@ -108,6 +108,9 @@ fun CalendarScreen(
     val systemEvents by viewModel.systemEvents.collectAsStateWithLifecycle()
     val calendarReadable by viewModel.calendarReadable.collectAsStateWithLifecycle()
 
+    // 月历热力图：网格里每一天的完成率（0~1），用来给当天方块上色
+    val dayCompletion by viewModel.dayCompletion.collectAsStateWithLifecycle()
+
     // 默认选中今天；翻月后如果今天不在视野里也没关系，用户可以自己点
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
 
@@ -178,10 +181,37 @@ fun CalendarScreen(
                             inCurrentMonth = date.month == anchor.month,
                             isToday = date == LocalDate.now(),
                             isSelected = date == selectedDate,
+                            rate = dayCompletion[date] ?: 0f,
                             reminders = occurrencesByDate[date].orEmpty(),
                             eventCount = eventsByDate[date].orEmpty().size,
                             onClick = { selectedDate = date },
                             modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+
+            // ---- 月历热力图例 ----
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.calendar_heatmap_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    listOf(0.25f, 0.45f, 0.65f, 0.85f, 1f).forEach { level ->
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = level),
+                                    shape = RoundedCornerShape(3.dp)
+                                )
                         )
                     }
                 }
@@ -333,6 +363,7 @@ private fun DayCell(
     inCurrentMonth: Boolean,
     isToday: Boolean,
     isSelected: Boolean,
+    rate: Float,
     reminders: List<ReminderOccurrence>,
     eventCount: Int,
     onClick: () -> Unit,
@@ -361,6 +392,17 @@ private fun DayCell(
                         width = 1.5.dp,
                         color = MaterialTheme.colorScheme.primary,
                         shape = RoundedCornerShape(10.dp)
+                    )
+                    rate > 0f -> Modifier.background(
+                        MaterialTheme.colorScheme.primary.copy(
+                            alpha = when {
+                                rate < 0.25f -> 0.25f
+                                rate < 0.5f -> 0.45f
+                                rate < 0.75f -> 0.65f
+                                rate < 1f -> 0.85f
+                                else -> 1f
+                            }
+                        )
                     )
                     else -> Modifier
                 }

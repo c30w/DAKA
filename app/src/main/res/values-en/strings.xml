@@ -246,6 +246,8 @@
     <string name="stats_overall_rate">Overall</string>
     <string name="stats_perfect_days">Perfect days</string>
     <string name="stats_avg_done">Daily avg</string>
+    <string name="stats_best_streak">Best streak</string>
+    <string name="calendar_heatmap_hint">Darker = more done that day</string>
     <string name="stats_week_title">Last 7 days</string>
     <string name="stats_month_title">Completion rate, last 30 days</string>
     <string name="stats_year_title">Last year</string>

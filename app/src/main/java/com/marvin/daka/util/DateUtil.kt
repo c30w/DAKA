@@ -42,6 +42,30 @@ fun calcStreak(records: Set<String>, today: LocalDate = LocalDate.now()): Int {
 }
 
 /**
+ * 计算历史最长连续打卡天数（最佳连击）。
+ *
+ * 与 [calcStreak]（数到今天为止的当前连击）不同，这里数的是**历史任意一段**
+ * 最长的连续天数——可能早就断了，但曾经坚持过的最长记录。
+ *
+ * @param dates 这个习惯所有打卡日期的集合，元素形如 "2026-08-30"
+ * @return 最长连续天数；空集合返回 0
+ */
+fun calcBestStreak(dates: Set<String>): Int {
+    if (dates.isEmpty()) return 0
+    // ISO 日期字符串排序 == 按时间排序；转 epochDay 方便判断「是否相邻」
+    val epochs = dates.mapNotNull { runCatching { LocalDate.parse(it).toEpochDay() }.getOrNull() }
+        .distinct()
+        .sorted()
+    var best = 1
+    var cur = 1
+    for (i in 1 until epochs.size) {
+        cur = if (epochs[i] == epochs[i - 1] + 1) cur + 1 else 1
+        if (cur > best) best = cur
+    }
+    return best
+}
+
+/**
  * 最近 7 天的打卡情况，用于画那排 7 格小方块。
  *
  * @return 长度固定为 7 的 Boolean 列表，**下标 0 = 6 天前，下标 6 = 今天**（也就是从左到右、从旧到新）。

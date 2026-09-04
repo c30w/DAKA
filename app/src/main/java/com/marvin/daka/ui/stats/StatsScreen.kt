@@ -83,6 +83,7 @@ fun StatsScreen(
     val range by viewModel.statsRange.collectAsStateWithLifecycle()
     val daily by viewModel.dailyStats.collectAsStateWithLifecycle()
     val ranks by viewModel.habitStats.collectAsStateWithLifecycle()
+    val bestStreak by viewModel.bestStreak.collectAsStateWithLifecycle()
 
     Scaffold(
         modifier = modifier,
@@ -117,8 +118,8 @@ fun StatsScreen(
                 onSelect = { viewModel.setStatsRange(it) }
             )
 
-            // ---- 概览：三个数字 ----
-            OverviewRow(daily = daily)
+            // ---- 概览：四个数字 ----
+            OverviewRow(daily = daily, bestStreak = bestStreak)
 
             // ---- 主图：按范围换形态 ----
             when (range) {
@@ -182,6 +183,7 @@ private fun RangeSelector(
 @Composable
 private fun OverviewRow(
     daily: List<DailyStat>,
+    bestStreak: Int,
     modifier: Modifier = Modifier
 ) {
     val totalActive = daily.sumOf { it.activeCount }
@@ -210,6 +212,11 @@ private fun OverviewRow(
             modifier = Modifier.weight(1f),
             value = "%.1f".format(avgPerDay),
             label = stringResource(R.string.stats_avg_done)
+        )
+        OverviewCard(
+            modifier = Modifier.weight(1f),
+            value = "$bestStreak",
+            label = stringResource(R.string.stats_best_streak)
         )
     }
 }

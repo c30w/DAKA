@@ -27,6 +27,7 @@ import com.marvin.daka.ui.stats.StatsRange
 import com.marvin.daka.ui.stats.buildDailyStats
 import com.marvin.daka.ui.stats.buildHabitStats
 import com.marvin.daka.util.calcStreak
+import com.marvin.daka.util.calcBestStreak
 import com.marvin.daka.util.last7Days
 import com.marvin.daka.util.todayString
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +41,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * 首页的 ViewModel —— M4 的核心。
@@ -387,6 +390,58 @@ class HabitViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList()
+        )
+
+    /**
+     * 月历热力图用：当前显示月份网格（42 天）里每一天的完成率。
+     *
+     * 口径和 [buildDailyStats] 一致——分母是「当天活跃习惯数」（已创建且未归档）。
+     * 完成率 = 当天打卡数 / 当天活跃习惯数；当天没有活跃习惯记 0。
+     * 这是给「月历着色」单独算的，跟统计页按范围聚合的 [dailyStats] 不是一回事。
+     */
+    val dayCompletion: StateFlow<Map<LocalDate, Float>> =
+        combine(habitDao.observeAll(), recordDao.observeAll(), _monthAnchor) { habits, records, anchor ->
+            val (from, to) = monthGridRange(anchor)
+            val datesByHabit = records.groupBy { it.habitId }
+                .mapValues { (_, list) -> list.map { it.date }.toSet() }
+            val result = mutableMapOf<LocalDate, Float>()
+            var d = from
+            while (!d.isAfter(to)) {
+                val dateStr = d.toString()
+                val activeIds = habits.filter { h ->
+                    val created = Instant.ofEpochMilli(h.createdAt)
+                        .atZone(ZoneId.systemDefault()).toLocalDate()
+                    val archived = h.archivedAt?.let {
+                        Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                    }
+                    created <= d && (archived == null || archived > d)
+                }.map { it.id }.toSet()
+                val done = activeIds.count { id -> datesByHabit[id]?.contains(dateStr) == true }
+                result[d] = if (activeIds.isEmpty()) 0f else done.toFloat() / activeIds.size
+                d = d.plusDays(1)
+            }
+            result
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyMap()
+        )
+
+    /**
+     * 历史最长连续打卡天数（最佳连击），供统计页概览展示。
+     *
+     * 取所有习惯里「各自历史最佳连击」的最大值——
+     * 反映你曾经坚持得最狠的一段，比「当前连击」更能体现长期毅力。
+     */
+    val bestStreak: StateFlow<Int> =
+        combine(habitDao.observeAll(), recordDao.observeAll()) { habits, records ->
+            val datesByHabit = records.groupBy { it.habitId }
+                .mapValues { (_, list) -> list.map { it.date }.toSet() }
+            habits.maxOfOrNull { calcBestStreak(datesByHabit[it.id].orEmpty()) } ?: 0
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = 0
         )
 
     /**
