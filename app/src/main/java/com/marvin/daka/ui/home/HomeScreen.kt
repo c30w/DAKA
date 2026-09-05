@@ -97,6 +97,22 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ripple
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.stateDescription
+import com.marvin.daka.data.AppPrefs
+
 // ------------------------------------------------------------------
 // 拖拽 key 约定
 //
@@ -159,6 +175,11 @@ fun HomeScreen(
     val sections by viewModel.sections.collectAsStateWithLifecycle()
     // 跳过记录：操作面板判断「今天是否已跳过」用
     val skips by viewModel.skips.collectAsStateWithLifecycle()
+
+    // 主页布局风格：读 DataStore，切换时即时重组首页（列表 / 网格 / 紧凑）
+    val context = LocalContext.current
+    val appPrefs = remember { AppPrefs(context) }
+    val homeStyle by appPrefs.homeStyle.collectAsStateWithLifecycle(initialValue = HomeStyle.LIST)
 
     // 今日全部完成时播一段悦耳庆祝音（只在「未全完成 → 全完成」跃迁时播一次，不重复）
     val wasAllDone = remember { mutableStateOf(items.isNotEmpty() && items.all { it.doneToday }) }
@@ -230,6 +251,7 @@ fun HomeScreen(
             onMoveUp = { viewModel.moveHabit(it, -1) },
             onMoveDown = { viewModel.moveHabit(it, +1) },
             onOpenSheet = { sheetHabit = it },
+            homeStyle = homeStyle,
             modifier = Modifier.padding(innerPadding)
         )
     }
@@ -462,6 +484,7 @@ private fun HomeContent(
     onMoveUp: (Long) -> Unit,
     onMoveDown: (Long) -> Unit,
     onOpenSheet: (HabitUi) -> Unit,
+    homeStyle: String = HomeStyle.LIST,
     modifier: Modifier = Modifier
 ) {
     // 空状态：还没建习惯时给句人话，别让用户对着白屏发呆
@@ -487,183 +510,219 @@ private fun HomeContent(
         return
     }
 
-    val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    // 「原地松手 = 面板」的判定阈值：累计位移小于它就算「没拖」
-    val tapThresholdPx = with(LocalDensity.current) { 12.dp.toPx() }
 
-    // ---------------------------------------------------------------
-    // 拖拽的数据模型：拖动期间改内存里的扁平列表 flat，松手才落库。
-    //
-    // flat = [分类头, 习惯, 习惯, 分类头, 习惯 ...]，和屏幕视觉顺序一一对应。
-    // DB/Flow 只在松手时收到最终结果，拖动全程零数据库参与 → 零卡顿。
-    // sections 每次变化（落库后 Flow 推送、打卡状态刷新）都会重建 flat；
-    // 拖动进行中不会重建——拖动期间没有 DB 写入，sections 本来也不会变。
-    // ---------------------------------------------------------------
-    var flat by remember { mutableStateOf(sections.toHomeRows()) }
-    LaunchedEffect(sections) { flat = sections.toHomeRows() }
-
-    // id → 习惯的速查表：拖拽回调里只拿得到 key，弹操作面板要习惯对象
-    val habitsById = remember(sections) {
-        sections.flatMap { it.habits }.associateBy { it.id }
-    }
-    // 同 flat 的套路：状态机捕获的是这个「永远最新」的引用
-    var currentHabitsById by remember { mutableStateOf(habitsById) }
-    currentHabitsById = habitsById
-
-    // 分组的完成度统计（拖动中数字不刷新没关系，打卡和拖拽不会同时发生）
-    val statsByCategory = remember(sections) {
-        sections.associate { section ->
-            section.category to (section.habits.count { it.doneToday } to section.habits.size)
-        }
-    }
-
-    val drag = remember(tapThresholdPx) {
-        DragDropState(
-            listState = listState,
-            scope = scope,
-            tapThresholdPx = tapThresholdPx,
-            onMove = { fromKey, toKey, downward ->
-                val next = moveRow(flat, fromKey, toKey, downward)
-                val changed = next != flat
-                flat = next
-                changed
-            },
-            onSwapGroups = { fromCategory, toCategory ->
-                val next = swapGroupBlocks(flat, fromCategory, toCategory)
-                val changed = next != flat
-                flat = next
-                changed
-            },
-            onLongPressHabit = { id -> currentHabitsById[id]?.let(onOpenSheet) },
-            onDropPin = onPinToTop,
-            onCommitOrder = { onApplyOrder(flat.toSections()) }
-        )
+    // 展平：所有习惯按当前顺序，置顶的排最前（网格 / 紧凑风格下让置顶一眼在前）
+    val flatHabits = remember(sections) {
+        sections.flatMap { it.habits }.sortedBy { if (it.pinned) 0 else 1 }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                // 登记列表自身的根坐标，给置顶区悬停判定换算用（见 DragDropState）
-                .onGloballyPositioned { drag.reportViewportTop(it.boundsInRoot().top.roundToInt()) }
-                .padding(horizontal = 16.dp)
-        ) {
-            item(key = SUMMARY_KEY) {
-                TodaySummary(done = doneCount, total = totalCount)
-            }
-
-            items(flat, key = { it.key }) { row ->
-                val isDragged = drag.draggingKey == row.key
-                Box(
+        when (homeStyle) {
+            // ---------------- 磁贴网格：两列方格，一眼扫完全部习惯 ----------------
+            HomeStyle.GRID -> {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
                     modifier = Modifier
-                        // animateItem：条目换位时自动弹簧动画。
-                        // 被拖的那条关掉——它由 graphicsLayer 跟手平移，两个动画叠加会打架
-                        .animateItem(
-                            placementSpec = if (isDragged) {
-                                null
-                            } else {
-                                spring(stiffness = Spring.StiffnessMediumLow)
-                            }
-                        )
-                        .zIndex(if (isDragged) 1f else 0f)
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
-                    when (row) {
-                        is HomeRow.Header -> {
-                            val (done, total) = statsByCategory[row.category] ?: (0 to 0)
-                            SectionHeader(
-                                category = row.category,
-                                done = done,
-                                total = total,
-                                drag = drag
-                            )
-                        }
-
-                        is HomeRow.HabitRow -> {
-                            val habit = row.habit
-                            val a11yActions = listOf(
-                                (if (habit.pinned) stringResource(R.string.a11y_pin_on) else stringResource(R.string.a11y_pin_off)) to
-                                    { onTogglePin(habit.id) },
-                                stringResource(R.string.a11y_edit) to { onEditHabit(habit.id) },
-                                stringResource(R.string.a11y_move_up) to { onMoveUp(habit.id) },
-                                stringResource(R.string.a11y_move_down) to { onMoveDown(habit.id) },
-                                stringResource(R.string.a11y_delete) to { onRequestDelete(habit) }
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    // 跟手平移：被拖时实时读 displayTranslation（含松手回弹动画）
-                                    .graphicsLayer {
-                                        translationY = if (drag.draggingKey == row.key) {
-                                            drag.displayTranslation
-                                        } else {
-                                            0f
-                                        }
-                                    }
-                                    .alpha(if (drag.isVisuallyDragging(row.key)) 0.55f else 1f)
-                                    .then(drag.gestureModifier(row.key))
-                                    .padding(bottom = 12.dp)
-                            ) {
-                                SwipeableHabitCard(
-                                    habit = habit,
-                                    a11yActions = a11yActions,
-                                    onToggle = {
-                                        // 打卡成功/取消播放不同音效，清脆不突兀
-                                        SoundEffectPlayer.play(
-                                            if (habit.doneToday) {
-                                                SoundEffectPlayer.Effect.DakaCancel
-                                            } else {
-                                                SoundEffectPlayer.Effect.DakaOk
-                                            }
-                                        )
-                                        onToggle(habit.id, habit.doneToday)
-                                    },
-                                    onSwipeEdit = {
-                                        SoundEffectPlayer.play(SoundEffectPlayer.Effect.DakaEdit)
-                                        onEditHabit(habit.id)
-                                    },
-                                    onSwipePin = {
-                                        SoundEffectPlayer.play(SoundEffectPlayer.Effect.DakaPin)
-                                        onTogglePin(habit.id)
-                                    }
-                                )
-                            }
-                        }
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        TodaySummary(done = doneCount, total = totalCount)
+                    }
+                    gridItems(flatHabits, key = { "h:${it.id}" }) { habit ->
+                        HabitTileCard(
+                            habit = habit,
+                            onToggle = { onToggle(habit.id, habit.doneToday) },
+                            onOpenSheet = onOpenSheet
+                        )
+                    }
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        HomeFooterHint(dragHint = false)
                     }
                 }
             }
 
-            item(key = FOOTER_KEY) {
-                // V4.11 清理时误删的「左右滑提示」补回：让用户知道卡片能滑。
-                // 用当前代码实际方向——左滑=编辑、右滑=置顶（删除误触风险高，留在操作面板里）。
-                Column(
+            // ---------------- 紧凑清单：每行一条，最省高度，习惯多时一屏看更多 ----------------
+            HomeStyle.COMPACT -> {
+                LazyColumn(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
-                    Text(
-                        text = stringResource(R.string.home_swipe_hint),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    item(key = SUMMARY_KEY) {
+                        TodaySummary(done = doneCount, total = totalCount)
+                    }
+                    items(flatHabits, key = { "h:${it.id}" }) { habit ->
+                        HabitCompactRow(
+                            habit = habit,
+                            onToggle = { onToggle(habit.id, habit.doneToday) },
+                            onOpenSheet = onOpenSheet,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                    item(key = FOOTER_KEY) {
+                        HomeFooterHint(dragHint = false)
+                    }
                 }
             }
-        }
 
-        // V4.2：拖动习惯时顶部浮出「置顶区」。浮层不参与布局，
-        // 出现/消失不会把列表顶得跳一下（V4.2 塞在列表里就有这毛病）
-        if (drag.isDraggingHabit) {
-            PinDropZone(
-                drag = drag,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-        }
-        LaunchedEffect(drag.isDraggingHabit) {
-            if (!drag.isDraggingHabit) drag.clearPinZone()
+            // ---------------- 列表卡片：功能最全（拖拽排序 + 左右滑 + 操作面板）----------------
+            else -> {
+                val listState = rememberLazyListState()
+                // 「原地松手 = 面板」的判定阈值：累计位移小于它就算「没拖」
+                val tapThresholdPx = with(LocalDensity.current) { 12.dp.toPx() }
+
+                // 拖拽的数据模型：拖动期间改内存里的扁平列表 flat，松手才落库。
+                var flat by remember { mutableStateOf(sections.toHomeRows()) }
+                LaunchedEffect(sections) { flat = sections.toHomeRows() }
+
+                // id → 习惯的速查表：拖拽回调里只拿得到 key，弹操作面板要习惯对象
+                val habitsById = remember(sections) {
+                    sections.flatMap { it.habits }.associateBy { it.id }
+                }
+                var currentHabitsById by remember { mutableStateOf(habitsById) }
+                currentHabitsById = habitsById
+
+                // 分组的完成度统计（拖动中数字不刷新没关系，打卡和拖拽不会同时发生）
+                val statsByCategory = remember(sections) {
+                    sections.associate { section ->
+                        section.category to (section.habits.count { it.doneToday } to section.habits.size)
+                    }
+                }
+
+                val drag = remember(tapThresholdPx) {
+                    DragDropState(
+                        listState = listState,
+                        scope = scope,
+                        tapThresholdPx = tapThresholdPx,
+                        onMove = { fromKey, toKey, downward ->
+                            val next = moveRow(flat, fromKey, toKey, downward)
+                            val changed = next != flat
+                            flat = next
+                            changed
+                        },
+                        onSwapGroups = { fromCategory, toCategory ->
+                            val next = swapGroupBlocks(flat, fromCategory, toCategory)
+                            val changed = next != flat
+                            flat = next
+                            changed
+                        },
+                        onLongPressHabit = { id -> currentHabitsById[id]?.let(onOpenSheet) },
+                        onDropPin = onPinToTop,
+                        onCommitOrder = { onApplyOrder(flat.toSections()) }
+                    )
+                }
+
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .onGloballyPositioned { drag.reportViewportTop(it.boundsInRoot().top.roundToInt()) }
+                        .padding(horizontal = 16.dp)
+                ) {
+                    item(key = SUMMARY_KEY) {
+                        TodaySummary(done = doneCount, total = totalCount)
+                    }
+
+                    items(flat, key = { it.key }) { row ->
+                        val isDragged = drag.draggingKey == row.key
+                        Box(
+                            modifier = Modifier
+                                .animateItem(
+                                    placementSpec = if (isDragged) {
+                                        null
+                                    } else {
+                                        spring(stiffness = Spring.StiffnessMediumLow)
+                                    }
+                                )
+                                .zIndex(if (isDragged) 1f else 0f)
+                        ) {
+                            when (row) {
+                                is HomeRow.Header -> {
+                                    val (done, total) = statsByCategory[row.category] ?: (0 to 0)
+                                    SectionHeader(
+                                        category = row.category,
+                                        done = done,
+                                        total = total,
+                                        drag = drag
+                                    )
+                                }
+
+                                is HomeRow.HabitRow -> {
+                                    val habit = row.habit
+                                    val a11yActions = listOf(
+                                        (if (habit.pinned) stringResource(R.string.a11y_pin_on) else stringResource(R.string.a11y_pin_off)) to
+                                            { onTogglePin(habit.id) },
+                                        stringResource(R.string.a11y_edit) to { onEditHabit(habit.id) },
+                                        stringResource(R.string.a11y_move_up) to { onMoveUp(habit.id) },
+                                        stringResource(R.string.a11y_move_down) to { onMoveDown(habit.id) },
+                                        stringResource(R.string.a11y_delete) to { onRequestDelete(habit) }
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .graphicsLayer {
+                                                translationY = if (drag.draggingKey == row.key) {
+                                                    drag.displayTranslation
+                                                } else {
+                                                    0f
+                                                }
+                                            }
+                                            .alpha(if (drag.isVisuallyDragging(row.key)) 0.55f else 1f)
+                                            .then(drag.gestureModifier(row.key))
+                                            .padding(bottom = 12.dp)
+                                    ) {
+                                        SwipeableHabitCard(
+                                            habit = habit,
+                                            a11yActions = a11yActions,
+                                            onToggle = {
+                                                SoundEffectPlayer.play(
+                                                    if (habit.doneToday) {
+                                                        SoundEffectPlayer.Effect.DakaCancel
+                                                    } else {
+                                                        SoundEffectPlayer.Effect.DakaOk
+                                                    }
+                                                )
+                                                onToggle(habit.id, habit.doneToday)
+                                            },
+                                            onSwipeEdit = {
+                                                SoundEffectPlayer.play(SoundEffectPlayer.Effect.DakaEdit)
+                                                onEditHabit(habit.id)
+                                            },
+                                            onSwipePin = {
+                                                SoundEffectPlayer.play(SoundEffectPlayer.Effect.DakaPin)
+                                                onTogglePin(habit.id)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    item(key = FOOTER_KEY) {
+                        HomeFooterHint()
+                    }
+                }
+
+                // 拖动习惯时顶部浮出「置顶区」
+                if (drag.isDraggingHabit) {
+                    PinDropZone(
+                        drag = drag,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+                LaunchedEffect(drag.isDraggingHabit) {
+                    if (!drag.isDraggingHabit) drag.clearPinZone()
+                }
+            }
         }
     }
 }
@@ -1267,7 +1326,14 @@ private fun SwipeableHabitCard(
     }
 }
 
-/** 顶部今日进度汇总：大数字 + 进度条 */
+/**
+ * 顶部今日进度汇总：环形进度 + 鼓励语。
+ *
+ * 比原来的「大数字 + 直条」更有设计感：
+ *   - 左侧一个描边环形进度（用强调色 primary，和主题联动），中间叠大百分比；
+ *   - 右侧今日完成数 / 总数，下面跟一句随进度变化的鼓励语
+ *     （全完成 / 还差几个 / 还没开始），让冷冰冰的数字多一点温度。
+ */
 @Composable
 private fun TodaySummary(
     done: Int,
@@ -1275,55 +1341,251 @@ private fun TodaySummary(
     modifier: Modifier = Modifier
 ) {
     val progress = if (total == 0) 0f else done.toFloat() / total.toFloat()
+    val percent = (progress * 100).toInt()
+
     // 读屏：把整块汇总读成一句话（semantics 块不是 Composable 上下文，先在这里算好）
     val summaryDesc = stringResource(R.string.home_summary_full, done, total) +
-        "，" + stringResource(R.string.home_summary_label) + " " + (progress * 100).toInt() + "%"
+        "，" + stringResource(R.string.home_summary_label) + " " + percent + "%"
 
-    Column(
+    // 随进度变化的鼓励语
+    val encourage = when {
+        total == 0 -> stringResource(R.string.home_summary_none)
+        done >= total -> stringResource(R.string.home_summary_all_done)
+        else -> stringResource(R.string.home_summary_partial, total - done)
+    }
+
+    Surface(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
-            .semantics { contentDescription = summaryDesc }
+            .semantics { contentDescription = summaryDesc },
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
-        Text(
-            text = stringResource(R.string.home_summary_label),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = done.toString(),
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = stringResource(R.string.home_summary_done, total),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 6.dp)
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            Text(
-                text = "${(progress * 100).toInt()}%",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 6.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        LinearProgressIndicator(
-            progress = { progress },
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(8.dp),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 环形进度：描边 + 中间百分比
+            Box(contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.size(72.dp),
+                    strokeWidth = 8.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                )
+                Text(
+                    text = "$percent%",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.home_summary_label),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = done.toString(),
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(R.string.home_summary_done, total),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = encourage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 网格磁贴卡（主页「磁贴网格」风格用）。
+ *
+ * 两列方格：emoji 大、名字、连续天数、7 天迷你格，右下勾选圈。
+ * 点击 = 打卡；长按 = 打开操作面板。复用 HabitCard 里的 emoji 托 / 勾选圈 / 7 天格组件。
+ */
+@Composable
+private fun HabitTileCard(
+    habit: HabitUi,
+    onToggle: () -> Unit,
+    onOpenSheet: (HabitUi) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val stateDesc = buildString {
+        append(if (habit.doneToday) stringResource(R.string.card_done) else stringResource(R.string.card_not_done))
+        if (habit.pinned) append(stringResource(R.string.card_pinned))
+    }
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = onToggle,
+                onLongClick = { onOpenSheet(habit) },
+                indication = ripple(),
+                interactionSource = remember { MutableInteractionSource() }
+            )
+            .semantics(mergeDescendants = true) {
+                role = Role.Checkbox
+                stateDescription = stateDesc
+            },
+        shape = RoundedCornerShape(18.dp),
+        color = if (habit.pinned) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
+        border = if (habit.pinned) {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.55f))
+        } else {
+            null
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                HabitEmojiBadge(emoji = habit.emoji, colorArgb = habit.colorArgb)
+                Spacer(modifier = Modifier.weight(1f))
+                HabitCheckMark(done = habit.doneToday)
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = habit.name,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = if (habit.streak > 0) {
+                    stringResource(R.string.card_streak, habit.streak)
+                } else {
+                    stringResource(R.string.card_no_streak)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            WeekStrip(last7 = habit.last7, colorArgb = habit.colorArgb)
+        }
+    }
+}
+
+/**
+ * 紧凑清单行（主页「紧凑清单」风格用）。
+ *
+ * 一行：emoji 小托 + 名字 + 连续天数，右侧勾选圈。去掉 7 天格子，最省高度，
+ * 习惯多时一屏能看更多。点击 = 打卡；长按 = 操作面板。
+ */
+@Composable
+private fun HabitCompactRow(
+    habit: HabitUi,
+    onToggle: () -> Unit,
+    onOpenSheet: (HabitUi) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val stateDesc = buildString {
+        append(if (habit.doneToday) stringResource(R.string.card_done) else stringResource(R.string.card_not_done))
+        if (habit.pinned) append(stringResource(R.string.card_pinned))
+    }
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = onToggle,
+                onLongClick = { onOpenSheet(habit) },
+                indication = ripple(),
+                interactionSource = remember { MutableInteractionSource() }
+            )
+            .semantics(mergeDescendants = true) {
+                role = Role.Checkbox
+                stateDescription = stateDesc
+            },
+        shape = RoundedCornerShape(14.dp),
+        color = if (habit.pinned) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
+        border = if (habit.pinned) {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.55f))
+        } else {
+            null
+        }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HabitEmojiBadge(emoji = habit.emoji, colorArgb = habit.colorArgb)
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = habit.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (habit.streak > 0) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = stringResource(R.string.card_streak, habit.streak),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            HabitCheckMark(done = habit.doneToday)
+        }
+    }
+}
+
+/** 列表底部的提示文案。列表风格显示「滑动/拖动」提示，网格/紧凑风格显示「点击/长按」提示 */
+@Composable
+private fun HomeFooterHint(dragHint: Boolean = true, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp, bottom = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = if (dragHint) {
+                stringResource(R.string.home_swipe_hint)
+            } else {
+                stringResource(R.string.home_tap_hint)
+            },
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

@@ -1,17 +1,14 @@
 package com.marvin.daka.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.unit.dp
 
 /**
  * 主题模式的三种取值。存进 DataStore 的就是这三个字符串。
@@ -25,14 +22,11 @@ import androidx.compose.ui.unit.dp
 /** 默认强调色：薄荷青绿（与 v1.2 品牌色一致）。DataStore 里没存过时用它 */
 const val DEFAULT_ACCENT_COLOR = 0xFF0F8A7CL
 
-/** 圆角风格：标准（M3 默认）。存 DataStore 的就是这些字符串 */
-const val CORNER_STANDARD = "standard"
-/** 圆角风格：方正 */
-const val CORNER_SQUARE = "square"
-/** 圆角风格：圆润 */
-const val CORNER_ROUND = "round"
-
-/** 可选的强调色板（ARGB）。首项即默认品牌色，其余按「中亮度、白字可读」挑的 */
+/**
+ * 可选的强调色预设（ARGB）。首项即默认品牌色。
+ * 无极取色器（HsvColorPicker）是主入口，这 8 个作为「快捷预设」放在取色弹窗里，
+ * 手懒不想调时一键选——既有「任意颜色」的自由，又有「一键到位」的省事。
+ */
 val AccentPalette: List<Long> = listOf(
     0xFF0F8A7C, // 薄荷青绿（默认）
     0xFF2E6E8E, // 湖蓝
@@ -62,35 +56,6 @@ private fun ColorScheme.withAccentDark(accent: Color): ColorScheme = copy(
     primaryContainer = lerp(accent, Color.Black, 0.65f),
     onPrimaryContainer = lerp(accent, Color.White, 0.75f)
 )
-
-/**
- * #9 圆角风格档位 → Shapes。
- *
- * 以当前主题的 Shapes 为基底 copy——新版 M3 的 Shapes 构造函数是 internal 的，
- * 从零 new 不出来；copy 现成的再改几个档位，等价且不依赖内部 API。
- */
-@Composable
-private fun cornerShapes(style: String): Shapes {
-    val base = MaterialTheme.shapes
-    return when (style) {
-        // 经 Java 桥构造：M3 1.4 的 Shapes 在 Kotlin 侧锁死了（见 ShapesCompat 注释）
-        CORNER_SQUARE -> ShapesCompat.build(
-            base.extraSmall,
-            RoundedCornerShape(4.dp),
-            RoundedCornerShape(8.dp),
-            RoundedCornerShape(12.dp),
-            RoundedCornerShape(16.dp)
-        )
-        CORNER_ROUND -> ShapesCompat.build(
-            base.extraSmall,
-            RoundedCornerShape(12.dp),
-            RoundedCornerShape(16.dp),
-            RoundedCornerShape(20.dp),
-            RoundedCornerShape(32.dp)
-        )
-        else -> base
-    }
-}
 
 object ThemeMode {
     /** 跟随系统（Android 10+ 的「深色模式」开关） */
@@ -192,14 +157,15 @@ private val DarkColorScheme = darkColorScheme(
  *   **默认关**：DAKA 的界面主色是习惯色板（40 种固定色），
  *   动态取色从壁纸抓来的颜色既不可控、又容易跟习惯色打架，
  *   还会让「清新青绿」这个品牌感消失。想要的话传 true 即可（仅 Android 12+ 生效）。
+ *
+ * #9 圆角风格档位已移除：圆角统一回归 Material 3 默认值（中等圆角），
+ * 不再提供「方正 / 圆润」切换——卡片、按钮自身的局部圆角是设计语言的一部分，照旧保留。
  */
 @Composable
 fun DAKATheme(
     themeMode: String = ThemeMode.DEVICE,
     /** #9 强调色 ARGB。默认品牌薄荷青；设了别的颜色就重染 primary 系 */
     accentColor: Long = DEFAULT_ACCENT_COLOR,
-    /** #9 圆角风格档位（CORNER_STANDARD / SQUARE / ROUND） */
-    cornerStyle: String = CORNER_STANDARD,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
@@ -226,7 +192,6 @@ fun DAKATheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        shapes = cornerShapes(cornerStyle),
         typography = Typography,
         content = content
     )

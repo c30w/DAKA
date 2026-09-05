@@ -19,6 +19,10 @@
     <string name="home_summary_label">今日进度</string>
     <string name="home_summary_done">/ %1$d 已完成</string>
     <string name="home_summary_full">%1$d / %2$d 已完成</string>
+    <string name="home_summary_all_done">今天全部完成，太棒了！</string>
+    <string name="home_summary_partial">还差 %1$d 个，加油</string>
+    <string name="home_summary_none">今天还没开始，点一下打卡</string>
+    <string name="home_tap_hint">点一下打卡 · 长按更多操作</string>
     <string name="home_pin_hint_drag">拖到这里置顶</string>
     <string name="home_pin_hint_release">松手置顶</string>
     <string name="home_swipe_edit">编辑</string>
@@ -85,10 +89,12 @@
     <string name="settings_backup">备份与恢复</string>
     <string name="settings_accent">强调色</string>
     <string name="settings_accent_desc">按钮、进度、选中态的主色调</string>
-    <string name="settings_corner">圆角风格</string>
-    <string name="settings_corner_standard">标准</string>
-    <string name="settings_corner_square">方正（硬朗）</string>
-    <string name="settings_corner_round">圆润（柔和）</string>
+    <string name="settings_home_style">主页布局</string>
+    <string name="settings_home_style_desc">列表 / 网格 / 紧凑，三选一</string>
+    <string name="home_style_list">列表（默认，可拖动排序）</string>
+    <string name="home_style_grid">网格（两列磁贴）</string>
+    <string name="home_style_compact">紧凑（单行清单）</string>
+    <string name="accent_preset">预设快捷色</string>
     <string name="settings_backup_desc">备份：把全部习惯和打卡记录存成 JSON 文件；恢复：选择备份文件，先预览内容再确认。</string>
     <string name="settings_backup_btn">备份</string>
     <string name="settings_restore_btn">恢复</string>

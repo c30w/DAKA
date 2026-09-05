@@ -62,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -73,10 +74,9 @@ import com.marvin.daka.data.AppPrefs
 import com.marvin.daka.data.LanguagePrefs
 import com.marvin.daka.R
 import com.marvin.daka.ui.theme.DEFAULT_ACCENT_COLOR
-import com.marvin.daka.ui.theme.CORNER_STANDARD
-import com.marvin.daka.ui.theme.CORNER_SQUARE
-import com.marvin.daka.ui.theme.CORNER_ROUND
 import com.marvin.daka.ui.theme.AccentPalette
+import com.marvin.daka.ui.theme.HsvColorPicker
+import com.marvin.daka.ui.home.HomeStyle
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.foundation.border
 import com.marvin.daka.BuildConfig
@@ -310,15 +310,15 @@ fun SettingsScreen(
     val habits by viewModel.habits.collectAsStateWithLifecycle()
     val extraReminders by viewModel.reminders.collectAsStateWithLifecycle()
 
-    // #9 外观自定义：强调色 + 圆角风格。改完即时重组，不重建 Activity
+    // #9 外观自定义：强调色 + 主页风格。改完即时重组，不重建 Activity
     val accentColor by appPrefs.accentColor.collectAsStateWithLifecycle(
         initialValue = DEFAULT_ACCENT_COLOR
     )
-    val cornerStyle by appPrefs.cornerStyle.collectAsStateWithLifecycle(
-        initialValue = CORNER_STANDARD
+    val homeStyle by appPrefs.homeStyle.collectAsStateWithLifecycle(
+        initialValue = HomeStyle.LIST
     )
     var showAccentDialog by remember { mutableStateOf(false) }
-    var showCornerDialog by remember { mutableStateOf(false) }
+    var showHomeStyleDialog by remember { mutableStateOf(false) }
     // #10：迁移到新设备的步骤说明
     var showMigrateDialog by remember { mutableStateOf(false) }
 
@@ -503,12 +503,12 @@ fun SettingsScreen(
                 onClick = { showAccentDialog = true }
             )
             Spacer(modifier = Modifier.height(12.dp))
-            // #9 圆角风格：整包换 Shapes（Surface/按钮/卡片的全局圆角）
+            // #9 主页布局风格：列表 / 网格 / 紧凑，三选一
             SettingsItem(
-                title = stringResource(R.string.settings_corner),
-                subtitle = cornerLabel(cornerStyle),
+                title = stringResource(R.string.settings_home_style),
+                subtitle = homeStyleLabel(homeStyle),
                 enabled = true,
-                onClick = { showCornerDialog = true }
+                onClick = { showHomeStyleDialog = true }
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -702,7 +702,7 @@ fun SettingsScreen(
         )
     }
 
-    // #9 强调色选择：8 色圆形色块，2 行 × 4 列，选中描边 + 打勾
+    // #9 强调色选择：无极取色器（HSV）+ 预设快捷。选色即时写 DataStore，主题即时重组
     if (showAccentDialog) {
         AlertDialog(
             onDismissRequest = { showAccentDialog = false },
@@ -714,13 +714,40 @@ fun SettingsScreen(
             title = { Text(stringResource(R.string.settings_accent)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AccentPalette.chunked(4).forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    // 当前色预览 + 十六进制
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(Color(accentColor))
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "#%08X".format(accentColor),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    // 无极取色器：拖动即所见即所得
+                    HsvColorPicker(
+                        initialColor = Color(accentColor),
+                        onColorChanged = { scope.launch { appPrefs.setAccentColor(it.toArgb().toLong() and 0xFFFFFFFFL) } }
+                    )
+                    // 预设快捷色：手懒不想调时一键选
+                    Text(
+                        text = stringResource(R.string.accent_preset),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    AccentPalette.chunked(8).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             row.forEach { argb ->
                                 val selected = argb == accentColor
                                 Box(
                                     modifier = Modifier
-                                        .size(44.dp)
+                                        .size(36.dp)
                                         .clip(CircleShape)
                                         .background(Color(argb))
                                         .border(
@@ -749,18 +776,18 @@ fun SettingsScreen(
         )
     }
 
-    // #9 圆角风格：三档单选，选中即时重算全局 Shapes
-    if (showCornerDialog) {
+    // #9 主页布局风格：列表 / 网格 / 紧凑，三选一，选中即时重组首页
+    if (showHomeStyleDialog) {
         SingleChoiceDialog(
-            title = stringResource(R.string.settings_corner),
+            title = stringResource(R.string.settings_home_style),
             options = listOf(
-                CORNER_STANDARD to stringResource(R.string.settings_corner_standard),
-                CORNER_SQUARE to stringResource(R.string.settings_corner_square),
-                CORNER_ROUND to stringResource(R.string.settings_corner_round)
+                HomeStyle.LIST to stringResource(R.string.home_style_list),
+                HomeStyle.GRID to stringResource(R.string.home_style_grid),
+                HomeStyle.COMPACT to stringResource(R.string.home_style_compact)
             ),
-            selected = cornerStyle,
-            onSelected = { style -> scope.launch { appPrefs.setCornerStyle(style) } },
-            onDismiss = { showCornerDialog = false }
+            selected = homeStyle,
+            onSelected = { style -> scope.launch { appPrefs.setHomeStyle(style) } },
+            onDismiss = { showHomeStyleDialog = false }
         )
     }
 
@@ -1277,12 +1304,12 @@ fun SettingsItemPreview() {
 }
 
 
-/** #9 圆角风格档位 → 本地化标签（设置行副标题用） */
+/** #9 主页风格 → 本地化标签（设置行副标题用） */
 @Composable
-private fun cornerLabel(style: String): String = stringResource(
+private fun homeStyleLabel(style: String): String = stringResource(
     when (style) {
-        CORNER_SQUARE -> R.string.settings_corner_square
-        CORNER_ROUND -> R.string.settings_corner_round
-        else -> R.string.settings_corner_standard
+        HomeStyle.GRID -> R.string.home_style_grid
+        HomeStyle.COMPACT -> R.string.home_style_compact
+        else -> R.string.home_style_list
     }
 )

@@ -71,11 +71,12 @@ class AppPrefs(private val context: Context) {
         val DRAFT_CATEGORY = stringPreferencesKey("draft_category")
 
         /**
-         * #9 外观自定义：强调色（ARGB Long）与圆角风格档位。
-         * 档位常量在 ui.theme（CORNER_STANDARD/SQUARE/ROUND），这里只存 Int。
+         * #9 外观自定义：强调色（ARGB Long）存入 accent_color；
+         * 主页布局风格（"list"/"grid"/"compact"）存入 home_style。
+         * 无极取色与风格切换均即时生效，这里只存值，界面层负责渲染。
          */
         val ACCENT_COLOR = longPreferencesKey("accent_color")
-        val CORNER_STYLE = stringPreferencesKey("corner_style")
+        val HOME_STYLE = stringPreferencesKey("home_style")
     }
 
     /** 用户自定义的分类顺序。空列表 = 没自定义过，按内置顺序展示 */
@@ -136,13 +137,13 @@ class AppPrefs(private val context: Context) {
         context.appDataStore.edit { it[Keys.ACCENT_COLOR] = color }
     }
 
-    /** 圆角风格档位（"standard"/"square"/"round"）。默认标准 */
-    val cornerStyle: Flow<String> = context.appDataStore.data
+    /** #9 主页布局风格（"list"/"grid"/"compact"）。默认 list */
+    val homeStyle: Flow<String> = context.appDataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
-        .map { prefs -> prefs[Keys.CORNER_STYLE] ?: "standard" }
+        .map { prefs -> prefs[Keys.HOME_STYLE] ?: "list" }
 
-    suspend fun setCornerStyle(style: String) {
-        context.appDataStore.edit { it[Keys.CORNER_STYLE] = style }
+    suspend fun setHomeStyle(style: String) {
+        context.appDataStore.edit { it[Keys.HOME_STYLE] = style }
     }
 
     suspend fun setThemeMode(mode: String) {

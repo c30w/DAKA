@@ -161,7 +161,7 @@ fun HabitCard(
  * 这样一眼就能靠颜色分辨习惯。
  */
 @Composable
-private fun HabitEmojiBadge(emoji: String, colorArgb: Long) {
+fun HabitEmojiBadge(emoji: String, colorArgb: Long) {
     Box(
         modifier = Modifier
             .size(40.dp)
@@ -183,7 +183,7 @@ private fun HabitEmojiBadge(emoji: String, colorArgb: Long) {
  * 打卡状态已由外层 stateDescription 播报，否则读屏会多念一个「对勾」。
  */
 @Composable
-private fun HabitCheckMark(done: Boolean) {
+fun HabitCheckMark(done: Boolean) {
     if (done) {
         Box(
             modifier = Modifier
