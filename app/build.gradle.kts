@@ -42,8 +42,8 @@ android {
         applicationId = "com.marvin.daka"
         minSdk = 26
         targetSdk = 37
-        versionCode = 17
-        versionName = "1.3.9"
+        versionCode = 18
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
