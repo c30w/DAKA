@@ -41,6 +41,7 @@ DAKA 是一个自用优先、现在开源的习惯打卡工具。它不联网、
 | **多语言（i18n）** | 中文 / English 可切换（设置 → 语言），也跟随系统 |
 | **主题** | 跟随系统 / 浅色 / 深色三选一（设置 → 主题），清新薄荷青绿配色底座，所有界面卡片重绘不闪屏 |
 | **外观自定义** | 强调色无极取色（HSV 调色盘 + 8 色预设，即时重染全局主色系）+ 主页布局三选一（列表 / 网格 / 紧凑） |
+| **今日进度环** | 首页顶部环形进度（CircularProgressIndicator）+ 随完成度变化的鼓励语，一眼看出今日完成比例 |
 | **新手引导** | 首次启动三步引导，最后一步可选「不再显示」 |
 | **统计页** | 周/月/年趋势图、年日历热力图、月历每日完成率着色、最佳连击等，原生 Canvas 绘制，无第三方图表库 |
 | **检查更新** | 设置页显示当前 / 最新版本号，有新版红点提醒，1 小时缓存，不弹窗，自行决定是否更新 |
@@ -78,9 +79,9 @@ K40 真机截图（已裁掉顶部通知栏），共 6 张覆盖四个核心页�
 | --- | --- |
 | 语言 | Kotlin 2.2.10 |
 | UI | Jetpack Compose (Material3) |
-| 构建 | Android Gradle Plugin 9.3 / Gradle 9.5 |
+| 构建 | Android Gradle Plugin 9.3.2 / Gradle 9.5.0 |
 | 最低 / 目标 / 编译 | minSdk 26 / targetSdk 37 / compileSdk 37 |
-| 本地数据库 | Room 2.8（KSP 生成代码） |
+| 本地数据库 | Room 2.8.4（KSP 生成代码） |
 | 键值存储 | DataStore (Preferences) |
 | 导航 | Navigation Compose |
 | JSON | kotlinx.serialization |
@@ -88,7 +89,7 @@ K40 真机截图（已裁掉顶部通知栏），共 6 张覆盖四个核心页�
 **架构**：UI（Compose）← ViewModel（StateFlow）← 数据层（Room DAO / Repository）。
 数据库变更一律走 Room Migration，绝不丢老用户数据。
 
-> 当前数据库版本 **v5**（`habits` 表含 `note` 列），迁移脚本集中在 `HabitDatabase.kt`。
+> 当前数据库版本 **v7**（含 `reminders` / `habit_skips` 表，`habits` 表含 `note` 列），迁移脚本集中在 `HabitDatabase.kt`。
 
 ---
 
