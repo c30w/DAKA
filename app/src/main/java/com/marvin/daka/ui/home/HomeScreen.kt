@@ -111,6 +111,8 @@ import androidx.compose.material3.ripple
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import com.marvin.daka.data.AppPrefs
 
 // ------------------------------------------------------------------
@@ -512,14 +514,9 @@ private fun HomeContent(
 
     val scope = rememberCoroutineScope()
 
-    // 展平：所有习惯按当前顺序，置顶的排最前（网格 / 紧凑风格下让置顶一眼在前）
-    val flatHabits = remember(sections) {
-        sections.flatMap { it.habits }.sortedBy { if (it.pinned) 0 else 1 }
-    }
-
     Box(modifier = modifier.fillMaxSize()) {
         when (homeStyle) {
-            // ---------------- 磁贴网格：两列方格，一眼扫完全部习惯 ----------------
+            // ---------------- 磁贴网格：两列方格，按分类分组，一眼扫完 ----------------
             HomeStyle.GRID -> {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
@@ -533,12 +530,49 @@ private fun HomeContent(
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         TodaySummary(done = doneCount, total = totalCount)
                     }
-                    gridItems(flatHabits, key = { "h:${it.id}" }) { habit ->
-                        HabitTileCard(
-                            habit = habit,
-                            onToggle = { onToggle(habit.id, habit.doneToday) },
-                            onOpenSheet = onOpenSheet
-                        )
+                    sections.forEach { section ->
+                        item(span = { GridItemSpan(maxLineSpan) }, key = catKey(section.category)) {
+                            PlainSectionHeader(
+                                category = section.category,
+                                done = section.habits.count { it.doneToday },
+                                total = section.habits.size
+                            )
+                        }
+                        gridItems(section.habits, key = { "h:${it.id}" }) { habit ->
+                            val a11yActions = listOf(
+                                (if (habit.pinned) stringResource(R.string.a11y_pin_on) else stringResource(R.string.a11y_pin_off)) to
+                                    { onTogglePin(habit.id) },
+                                stringResource(R.string.a11y_edit) to { onEditHabit(habit.id) },
+                                stringResource(R.string.a11y_move_up) to { onMoveUp(habit.id) },
+                                stringResource(R.string.a11y_move_down) to { onMoveDown(habit.id) },
+                                stringResource(R.string.a11y_delete) to { onRequestDelete(habit) }
+                            )
+                            val onCardToggle: () -> Unit = {
+                                SoundEffectPlayer.play(
+                                    if (habit.doneToday) SoundEffectPlayer.Effect.DakaCancel
+                                    else SoundEffectPlayer.Effect.DakaOk
+                                )
+                                onToggle(habit.id, habit.doneToday)
+                            }
+                            SwipeableHabitCard(
+                                habit = habit,
+                                onSwipeEdit = {
+                                    SoundEffectPlayer.play(SoundEffectPlayer.Effect.DakaEdit)
+                                    onEditHabit(habit.id)
+                                },
+                                onSwipePin = {
+                                    SoundEffectPlayer.play(SoundEffectPlayer.Effect.DakaPin)
+                                    onTogglePin(habit.id)
+                                }
+                            ) {
+                                HabitTileCard(
+                                    habit = habit,
+                                    onToggle = onCardToggle,
+                                    onOpenSheet = onOpenSheet,
+                                    a11yActions = a11yActions
+                                )
+                            }
+                        }
                     }
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         HomeFooterHint(dragHint = false)
@@ -546,7 +580,7 @@ private fun HomeContent(
                 }
             }
 
-            // ---------------- 紧凑清单：每行一条，最省高度，习惯多时一屏看更多 ----------------
+            // ---------------- 紧凑清单：每行一条，按分类分组，最省高度 ----------------
             HomeStyle.COMPACT -> {
                 LazyColumn(
                     modifier = Modifier
@@ -557,13 +591,50 @@ private fun HomeContent(
                     item(key = SUMMARY_KEY) {
                         TodaySummary(done = doneCount, total = totalCount)
                     }
-                    items(flatHabits, key = { "h:${it.id}" }) { habit ->
-                        HabitCompactRow(
-                            habit = habit,
-                            onToggle = { onToggle(habit.id, habit.doneToday) },
-                            onOpenSheet = onOpenSheet,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
+                    sections.forEach { section ->
+                        item(key = catKey(section.category)) {
+                            PlainSectionHeader(
+                                category = section.category,
+                                done = section.habits.count { it.doneToday },
+                                total = section.habits.size
+                            )
+                        }
+                        items(section.habits, key = { "h:${it.id}" }) { habit ->
+                            val a11yActions = listOf(
+                                (if (habit.pinned) stringResource(R.string.a11y_pin_on) else stringResource(R.string.a11y_pin_off)) to
+                                    { onTogglePin(habit.id) },
+                                stringResource(R.string.a11y_edit) to { onEditHabit(habit.id) },
+                                stringResource(R.string.a11y_move_up) to { onMoveUp(habit.id) },
+                                stringResource(R.string.a11y_move_down) to { onMoveDown(habit.id) },
+                                stringResource(R.string.a11y_delete) to { onRequestDelete(habit) }
+                            )
+                            val onCardToggle: () -> Unit = {
+                                SoundEffectPlayer.play(
+                                    if (habit.doneToday) SoundEffectPlayer.Effect.DakaCancel
+                                    else SoundEffectPlayer.Effect.DakaOk
+                                )
+                                onToggle(habit.id, habit.doneToday)
+                            }
+                            SwipeableHabitCard(
+                                habit = habit,
+                                onSwipeEdit = {
+                                    SoundEffectPlayer.play(SoundEffectPlayer.Effect.DakaEdit)
+                                    onEditHabit(habit.id)
+                                },
+                                onSwipePin = {
+                                    SoundEffectPlayer.play(SoundEffectPlayer.Effect.DakaPin)
+                                    onTogglePin(habit.id)
+                                },
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            ) {
+                                HabitCompactRow(
+                                    habit = habit,
+                                    onToggle = onCardToggle,
+                                    onOpenSheet = onOpenSheet,
+                                    a11yActions = a11yActions
+                                )
+                            }
+                        }
                     }
                     item(key = FOOTER_KEY) {
                         HomeFooterHint(dragHint = false)
@@ -677,19 +748,18 @@ private fun HomeContent(
                                             .then(drag.gestureModifier(row.key))
                                             .padding(bottom = 12.dp)
                                     ) {
+                                        val onCardToggle: () -> Unit = {
+                                            SoundEffectPlayer.play(
+                                                if (habit.doneToday) {
+                                                    SoundEffectPlayer.Effect.DakaCancel
+                                                } else {
+                                                    SoundEffectPlayer.Effect.DakaOk
+                                                }
+                                            )
+                                            onToggle(habit.id, habit.doneToday)
+                                        }
                                         SwipeableHabitCard(
                                             habit = habit,
-                                            a11yActions = a11yActions,
-                                            onToggle = {
-                                                SoundEffectPlayer.play(
-                                                    if (habit.doneToday) {
-                                                        SoundEffectPlayer.Effect.DakaCancel
-                                                    } else {
-                                                        SoundEffectPlayer.Effect.DakaOk
-                                                    }
-                                                )
-                                                onToggle(habit.id, habit.doneToday)
-                                            },
                                             onSwipeEdit = {
                                                 SoundEffectPlayer.play(SoundEffectPlayer.Effect.DakaEdit)
                                                 onEditHabit(habit.id)
@@ -698,7 +768,13 @@ private fun HomeContent(
                                                 SoundEffectPlayer.play(SoundEffectPlayer.Effect.DakaPin)
                                                 onTogglePin(habit.id)
                                             }
-                                        )
+                                        ) {
+                                            HabitCard(
+                                                habit = habit,
+                                                onToggle = onCardToggle,
+                                                a11yActions = a11yActions
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -748,6 +824,38 @@ private fun SectionHeader(
             .then(drag.gestureModifier(key))
             // 读屏：这行是可以拖动的；上下移动走卡片的自定义无障碍动作
             .semantics { contentDescription = "$category 分组，$done / $total 已完成" },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = category,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.padding(start = 8.dp))
+        Text(
+            text = "$done/$total",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+/**
+ * 纯展示分类头（网格 / 紧凑风格用，不带拖拽手势）。
+ * 样式与列表风格的 SectionHeader 一致，仅省略 DragDropState 相关逻辑。
+ */
+@Composable
+private fun PlainSectionHeader(
+    category: String,
+    done: Int,
+    total: Int,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -1212,11 +1320,10 @@ private class DragDropState(
 @Composable
 private fun SwipeableHabitCard(
     habit: HabitUi,
-    a11yActions: List<Pair<String, () -> Unit>>,
-    onToggle: () -> Unit,
     onSwipeEdit: () -> Unit,
     onSwipePin: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
 ) {
     val dismissState = rememberSwipeToDismissBoxState()
     // 独立 scope 跑归位：snapTo 放在这里，避免被 LaunchedEffect 的 key 变化取消
@@ -1318,11 +1425,7 @@ private fun SwipeableHabitCard(
             }
         }
     ) {
-        HabitCard(
-            habit = habit,
-            onToggle = onToggle,
-            a11yActions = a11yActions
-        )
+        content()
     }
 }
 
@@ -1430,6 +1533,7 @@ private fun HabitTileCard(
     habit: HabitUi,
     onToggle: () -> Unit,
     onOpenSheet: (HabitUi) -> Unit,
+    a11yActions: List<Pair<String, () -> Unit>> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     val stateDesc = buildString {
@@ -1448,6 +1552,9 @@ private fun HabitTileCard(
             .semantics(mergeDescendants = true) {
                 role = Role.Checkbox
                 stateDescription = stateDesc
+                customActions = a11yActions.map { (label, action) ->
+                    CustomAccessibilityAction(label) { action(); true }
+                }
             },
         shape = RoundedCornerShape(18.dp),
         color = if (habit.pinned) {
@@ -1509,6 +1616,7 @@ private fun HabitCompactRow(
     habit: HabitUi,
     onToggle: () -> Unit,
     onOpenSheet: (HabitUi) -> Unit,
+    a11yActions: List<Pair<String, () -> Unit>> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     val stateDesc = buildString {
@@ -1527,6 +1635,9 @@ private fun HabitCompactRow(
             .semantics(mergeDescendants = true) {
                 role = Role.Checkbox
                 stateDescription = stateDesc
+                customActions = a11yActions.map { (label, action) ->
+                    CustomAccessibilityAction(label) { action(); true }
+                }
             },
         shape = RoundedCornerShape(14.dp),
         color = if (habit.pinned) {
