@@ -57,6 +57,15 @@
             </intent-filter>
 
             <!--
+              API 34+ 通知栏磁贴「长按」的接收口：长按磁贴会直接拉起这个 Activity（进入 App）。
+              配合 NewHabitTileService 里 setActivityLaunchForClick 的「单击 = 新建习惯」，
+              实现「长按进 App、单击新建习惯」。旧系统（<34）改用 Tile.setActivity，见代码。
+            -->
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+            </intent-filter>
+
+            <!--
               桌面长按图标的快捷方式（新建习惯 / 查看统计 / 一键打卡）。
 
               ⚠️ meta-data 必须挂在**启动 Activity** 上，挂在 <application> 里不生效——
@@ -92,6 +101,26 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <!--
+          通知栏「快捷设置」磁贴（Quick Settings Tile）。
+            - 单击：直接打开新建习惯页（NEW_HABIT action，MainActivity 收到后导航过去）。
+            - 长按：进入 App 主界面（由 NewHabitTileService 里 qsTile.setActivity 指定）。
+          需要用户自己到「编辑快捷开关」面板里把 DAKA 加进通知栏。
+
+          android:permission="BIND_QUICK_SETTINGS_TILE" 是系统强制要求的，
+          少了它磁贴不会出现在编辑面板里。exported=true 是 TileService 的固定写法。
+        -->
+        <service
+            android:name=".quicktile.NewHabitTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_new_habit"
+            android:label="@string/tile_new_habit_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
     </application>
 

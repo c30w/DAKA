@@ -167,6 +167,23 @@ keytool -genkeypair -v -keystore daka-release.keystore \
 
 ---
 
+## 🔘 通知栏快捷磁贴（Quick Settings Tile）
+
+从下拉通知栏的「编辑快捷开关」面板里，把 **DAKA** 磁贴拖进你的快捷区（第三方 App 的磁贴都需手动添加，无法自动塞进通知栏）。
+
+添加后：
+
+| 操作 | 行为 |
+| --- | --- |
+| **单击（点一下）** | 直接打开「新建习惯」页 |
+| **长按** | 进入 App 主界面（首页） |
+
+> 单击走系统磁贴直达，比先解锁、再点图标、再点「+」更快一步。
+> 长按的目标页面由 Manifest 里 MainActivity 的 `ACTION_QS_TILE_PREFERENCES` 决定（API 34+）；
+> 旧系统上由 `Tile.setActivity` 实现，逻辑见 `app/.../quicktile/NewHabitTileService.kt`。
+
+---
+
 ## 🗂 自定义分类
 
 新建 / 编辑习惯时，分类区提供内置 chip + 一个「**自定义分类（可选）**」输入框；

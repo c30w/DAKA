@@ -311,4 +311,7 @@
     <string name="shortcut_check_all_long">今天没打卡的习惯全部打卡</string>
     <string name="shortcut_check_all_result">已打卡 %1$d 个习惯</string>
     <string name="shortcut_check_all_none">今天已经全部打卡完成了</string>
+
+    <!-- 通知栏快捷磁贴（Quick Settings Tile） -->
+    <string name="tile_new_habit_label">新建习惯</string>
 </resources>
