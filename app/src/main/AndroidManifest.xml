@@ -114,8 +114,8 @@
         <service
             android:name=".quicktile.NewHabitTileService"
             android:exported="true"
-            android:icon="@drawable/ic_tile_new_habit"
-            android:label="@string/tile_new_habit_label"
+            android:icon="@drawable/ic_tile_daka"
+            android:label="@string/tile_label"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />

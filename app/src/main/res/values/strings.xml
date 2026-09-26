@@ -313,5 +313,5 @@
     <string name="shortcut_check_all_none">今天已经全部打卡完成了</string>
 
     <!-- 通知栏快捷磁贴（Quick Settings Tile） -->
-    <string name="tile_new_habit_label">新建习惯</string>
+    <string name="tile_label">DAKA</string>
 </resources>

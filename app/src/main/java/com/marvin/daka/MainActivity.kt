@@ -63,6 +63,11 @@ object ShortcutActions {
  */
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        /** 磁贴单击传来：先正常进入 App，启动后再跳到新建习惯页 */
+        const val EXTRA_NEW_HABIT_AFTER_LAUNCH = "com.marvin.daka.extra.NEW_HABIT_AFTER_LAUNCH"
+    }
+
     /**
      * 当前待处理的快捷方式 action（null = 没有）。
      *
@@ -73,6 +78,21 @@ class MainActivity : ComponentActivity() {
      * 冷启动和热启动走同一条路，不用写两套。
      */
     private val pendingShortcut = MutableStateFlow<String?>(null)
+
+    /**
+     * 从 intent 解析要执行的快捷 action。
+     * 优先取 [ShortcutActions] 里的 action（动态/桌面快捷方式等）；
+     * 其次识别磁贴单击带来的 [EXTRA_NEW_HABIT_AFTER_LAUNCH] 标记，转成 NEW_HABIT，
+     * 即「先正常进 App，再由导航跳到新建页」。
+     */
+    private fun resolveShortcut(intent: Intent?): String? {
+        val byAction = intent?.action?.takeIf { it in ShortcutActions.ALL }
+        if (byAction != null) return byAction
+        if (intent?.getBooleanExtra(EXTRA_NEW_HABIT_AFTER_LAUNCH, false) == true) {
+            return ShortcutActions.NEW_HABIT
+        }
+        return null
+    }
 
     /**
      * 在 Activity 这一层也套上用户选的语言，保证 Compose 取到的资源是本地化的。
@@ -91,7 +111,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        pendingShortcut.value = intent.action?.takeIf { it in ShortcutActions.ALL }
+        pendingShortcut.value = resolveShortcut(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -99,8 +119,8 @@ class MainActivity : ComponentActivity() {
         // 让内容延伸到状态栏和导航栏后面，配合 TopAppBar 做沉浸式
         enableEdgeToEdge()
 
-        // 冷启动：从启动 intent 里取快捷方式 action
-        pendingShortcut.value = intent?.action?.takeIf { it in ShortcutActions.ALL }
+        // 冷启动：从启动 intent 里取快捷方式 action（含磁贴单击的 extra 标记）
+        pendingShortcut.value = resolveShortcut(intent)
 
         // 预加载全部 UI 音效（SoundPool 异步加载，不阻塞启动）
         SoundEffectPlayer.init(this)

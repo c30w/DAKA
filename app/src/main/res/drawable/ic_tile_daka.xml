@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  通知栏快捷磁贴 · DAKA
+  设计目标：神似应用图标（圆角方 + 中央大对勾 + 右下橙色打卡小勾），
+  同时兼容 MIUI 对磁贴图标的「单色 mask」渲染：
+    - 背景透明（不铺实心色，避免被染成纯色块导致勾看不清）
+    - 圆角方用「描边」而非填充，勾与橙点用不透明描边/填充
+    - 非 MIUI 设备：绿描边 + 白勾 + 橙点，精致好看；
+      MIUI 设备：整张图标被染成主题色，仍然清晰呈现「方框+双勾」轮廓。
+  24dp 视口，元素收在安全区内，避免磁贴缩放后糊边。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- 圆角方描边（呼应应用图标圆角方外框，绿描边） -->
+    <path
+        android:pathData="M8,2.5 L16,2.5 A5.5,5.5 0 0 1 21.5,8 L21.5,16 A5.5,5.5 0 0 1 16,21.5 L8,21.5 A5.5,5.5 0 0 1 2.5,16 L2.5,8 A5.5,5.5 0 0 1 8,2.5 Z"
+        android:strokeColor="#18C48E"
+        android:strokeWidth="1.8"
+        android:fillColor="#00000000" />
+
+    <!-- 中央白色大对勾（主体，圆头圆角，呼应应用图标主勾） -->
+    <path
+        android:pathData="M7.6,12.2 L10.5,15.2 L16.2,8.6"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- 右下橙色打卡小圆（呼应应用图标「打卡确认点」） -->
+    <path
+        android:pathData="M18,18 m-2.6,0 a2.6,2.6 0 1,0 5.2,0 a2.6,2.6 0 1,0 -5.2,0"
+        android:fillColor="#FF8A3D" />
+
+    <!-- 橙点内的白色小对勾 -->
+    <path
+        android:pathData="M16.7,18.1 L17.5,18.9 L19.1,17"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+</vector>

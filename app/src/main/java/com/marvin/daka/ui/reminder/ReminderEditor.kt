@@ -31,10 +31,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.TimePickerDialog
 import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.NumberPicker
+import android.widget.TextView
+import android.widget.LinearLayout
+import android.view.Gravity
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -310,51 +317,125 @@ private fun HintText(text: String) {
     )
 }
 
-/** 时间选择行：显示当前时间，点击弹系统的 TimePicker */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * 时间选择行：小时 / 分钟两个循环滚轮（spinner 风格），上下拨动调整。
+ * 用原生 NumberPicker 嵌入 Compose（Material3 没有滚轮式 TimePicker），
+ * wrapSelectorWheel=true 实现 0↔23 / 0↔59 的循环滚动。
+ */
 @Composable
 private fun TimePickerRow(
     hour: Int,
     minute: Int,
     onTimeChange: (hour: Int, minute: Int) -> Unit
 ) {
-    var showPicker by remember { mutableStateOf(false) }
+    val colorScheme = MaterialTheme.colorScheme
+    val onSurfaceArgb = colorScheme.onSurface.toArgb()
+    val primaryArgb = colorScheme.primary.toArgb()
+    // 实底色做底：深色模式下保证文字对比度。
+    // MIUI 上反射着色可能失效，靠这块和主题一致的实底兜底，默认文字色也能看清。
+    val surfaceArgb = colorScheme.surfaceContainerHigh.toArgb()
 
-    OutlinedButton(
-        onClick = { showPicker = true },
-        modifier = Modifier.fillMaxWidth()
+    val onTimeChangeRef = remember { mutableStateOf(onTimeChange) }
+    onTimeChangeRef.value = onTimeChange
+
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = "%02d:%02d".format(hour, minute),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
+        AndroidView(
+            modifier = Modifier.wrapContentWidth(),
+            factory = { ctx ->
+                val dip = ctx.resources.displayMetrics.density
+
+                fun NumberPicker.tune(initial: Int, max: Int) {
+                    minValue = 0
+                    maxValue = max
+                    value = initial
+                    wrapSelectorWheel = true
+                    setFormatter { "%02d".format(it) }
+                    // 缩小滚轮：限高 + 缩小字号（反射 mTextSize），深色模式也清晰
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        (118 * dip).toInt()
+                    )
+                    setWheelTextColor(this, onSurfaceArgb)
+                    setNumberDividerColor(this, primaryArgb)
+                    setPickerTextSize(this, 18f * dip)
+                    invalidate()
+                }
+
+                val hourP = NumberPicker(ctx); hourP.tune(hour, 23)
+                val minP = NumberPicker(ctx); minP.tune(minute, 59)
+                hourP.setOnValueChangedListener { _, _, v -> onTimeChangeRef.value(v, minP.value) }
+                minP.setOnValueChangedListener { _, _, v -> onTimeChangeRef.value(hourP.value, v) }
+
+                val colon = TextView(ctx).apply {
+                    text = ":"
+                    textSize = 24f
+                    setTextColor(onSurfaceArgb)
+                    gravity = Gravity.CENTER
+                    height = (118 * dip).toInt()
+                }
+
+                LinearLayout(ctx).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER
+                    // 圆角实底，深浅模式都清晰；滚轮文字默认跟随主题，
+                    // MIUI 反射失效时靠这块同色系实底保证对比度
+                    background = GradientDrawable().apply {
+                        setColor(surfaceArgb)
+                        cornerRadius = 16 * dip
+                    }
+                    setPadding(
+                        (12 * dip).toInt(), (4 * dip).toInt(),
+                        (12 * dip).toInt(), (4 * dip).toInt()
+                    )
+                    addView(hourP)
+                    addView(colon)
+                    addView(minP)
+                }
+            },
+            update = { root ->
+                val h = root.getChildAt(0) as NumberPicker
+                val m = root.getChildAt(2) as NumberPicker
+                if (h.value != hour) h.value = hour
+                if (m.value != minute) m.value = minute
+            }
         )
     }
+}
 
-    if (showPicker) {
-        val state = rememberTimePickerState(
-            initialHour = hour,
-            initialMinute = minute,
-            is24Hour = true // 中文用户习惯 24 小时制
-        )
-        TimePickerDialog(
-            // 新版 M3 把 title 提到了第一个**必需**参数位置，不传编译不过
-            title = { Text(stringResource(R.string.reminder_pick_time)) },
-            onDismissRequest = { showPicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showPicker = false
-                        onTimeChange(state.hour, state.minute)
-                    }
-                ) { Text(stringResource(R.string.common_confirm)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPicker = false }) { Text(stringResource(R.string.common_cancel)) }
-            }
-        ) {
-            TimePicker(state = state)
-        }
+/** 反射设置 NumberPicker 滚轮文字颜色（mSelectorWheelPaint），失败忽略 */
+private fun setWheelTextColor(picker: NumberPicker, argb: Int) {
+    try {
+        val f = NumberPicker::class.java.getDeclaredField("mSelectorWheelPaint")
+        f.isAccessible = true
+        (f.get(picker) as? android.graphics.Paint)?.color = argb
+    } catch (_: Throwable) {
+    }
+}
+
+/** 反射设置 NumberPicker 选中分隔线颜色（mSelectionDivider），失败忽略 */
+private fun setNumberDividerColor(picker: NumberPicker, argb: Int) {
+    try {
+        val f = NumberPicker::class.java.getDeclaredField("mSelectionDivider")
+        f.isAccessible = true
+        f.set(picker, ColorDrawable(argb))
+    } catch (_: Throwable) {
+    }
+}
+
+/** 反射设置 NumberPicker 字号（mTextSize，单位 px），缩小滚轮占用。失败忽略 */
+private fun setPickerTextSize(picker: NumberPicker, px: Float) {
+    try {
+        val f = NumberPicker::class.java.getDeclaredField("mTextSize")
+        f.isAccessible = true
+        f.set(picker, px)
+        // 同步更新绘制画笔字号：部分版本在 onDraw 里直接读字段，部分读画笔
+        val pf = NumberPicker::class.java.getDeclaredField("mSelectorWheelPaint")
+        pf.isAccessible = true
+        (pf.get(picker) as? android.graphics.Paint)?.textSize = px
+    } catch (_: Throwable) {
     }
 }
 

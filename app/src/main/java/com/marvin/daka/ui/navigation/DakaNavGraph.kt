@@ -46,6 +46,7 @@ import com.marvin.daka.ui.home.NewHabitDraft
 import com.marvin.daka.ui.onboarding.OnboardingOverlay
 import com.marvin.daka.ui.settings.SettingsScreen
 import com.marvin.daka.ui.template.TemplatePickerScreen
+import com.marvin.daka.ui.reminder.rememberReminderPermissionGate
 import kotlinx.coroutines.launch
 
 private const val ROUTE_HOME = "home"
@@ -106,6 +107,11 @@ fun DakaNavGraph(
     // 新手引导：首次启动展示一次；「不再显示」勾选后再启动就不弹了
     val appPrefs = remember(context) { AppPrefs(context.applicationContext) }
     val scope = rememberCoroutineScope()
+    // 提醒权限引导门：新建/编辑习惯带「开启的提醒」保存时，先过通知 + 精确闹钟两道权限关。
+    // 被拒时用 Toast 提示（不写库由 gate 内部处理；导航层选择「被拒也照常创建」以免丢用户输入）。
+    val reminderGate = rememberReminderPermissionGate(context) { msg ->
+        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+    }
     val onboardingDone by appPrefs.onboardingDone.collectAsStateWithLifecycle(initialValue = false)
     var showOnboarding by remember { mutableStateOf(false) }
     LaunchedEffect(onboardingDone) {
@@ -197,14 +203,23 @@ fun DakaNavGraph(
                 defaultReminderTime = defaultHour to defaultMinute,
                 // V5：note（备注）随习惯一起存库
                 onSave = { name, emoji, colorArgb, reminders, category, note ->
-                    // 写库交给 ViewModel，写完直接返回首页。
-                    // 不需要「通知首页刷新」——首页订阅的是数据库 Flow，数据一变自己就更新了。
-                    vm.createHabit(name, emoji, colorArgb, reminders, category, note)
-                    // 习惯建好了，草稿使命完成。
-                    // 在**导航层**清而不是在新建页清：新建页马上就被 pop 掉，
-                    // 它的 rememberCoroutineScope 会跟着取消，写在那里大概率来不及执行。
-                    scope.launch { appPrefs.clearHabitDraft() }
-                    navController.popBackStack()
+                    // 带着「开启的提醒」时，先过两道系统权限关再落库；
+                    // 被拒也照样建习惯（不丢用户输入），只是提醒暂时不会响（设置页顶部有红条提示）。
+                    val doCreate: () -> Unit = {
+                        // 写库交给 ViewModel，写完直接返回首页。
+                        // 不需要「通知首页刷新」——首页订阅的是数据库 Flow，数据一变自己就更新了。
+                        vm.createHabit(name, emoji, colorArgb, reminders, category, note)
+                        // 习惯建好了，草稿使命完成。
+                        // 在**导航层**清而不是在新建页清：新建页马上就被 pop 掉，
+                        // 它的 rememberCoroutineScope 会跟着取消，写在那里大概率来不及执行。
+                        scope.launch { appPrefs.clearHabitDraft() }
+                        navController.popBackStack()
+                    }
+                    reminderGate.request(
+                        hasEnabledReminder = reminders.any { it.enabled },
+                        onReady = doCreate,
+                        onDenied = doCreate
+                    )
                 },
                 onBack = { navController.popBackStack() },
                 // V1.3：模板库入口。新建页顶部那个「从模板导入」按钮
@@ -260,8 +275,15 @@ fun DakaNavGraph(
                     editingExtras = editingExtras,
                     onSave = { _, _, _, _, _, _ -> },
                     onUpdate = { id, name, emoji, colorArgb, reminders, category, note ->
-                        vm.updateHabit(id, name, emoji, colorArgb, category, reminders, note)
-                        navController.popBackStack()
+                        val doUpdate: () -> Unit = {
+                            vm.updateHabit(id, name, emoji, colorArgb, category, reminders, note)
+                            navController.popBackStack()
+                        }
+                        reminderGate.request(
+                            hasEnabledReminder = reminders.any { it.enabled },
+                            onReady = doUpdate,
+                            onDenied = doUpdate
+                        )
                     },
                     onBack = { navController.popBackStack() }
                 )

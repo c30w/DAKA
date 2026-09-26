@@ -57,11 +57,29 @@ class NewHabitTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        // 仅在旧系统上：onClick 代表单击，打开新建习惯页并收起通知栏。
-        // API >= 34 单击已被 setActivityLaunchForClick 接管，不会走到这里。
+        // 仅在旧系统上：onClick 代表单击。参考长按（setActivity 系统级）的逻辑，
+        // 先像长按那样「正常进入 App 主界面」，再由 App 启动后跳到新建习惯页。
+        // API >= 34 单击已被 setActivityLaunchForClick 接管（系统级收起并新建），不会走到这里。
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val intent = appIntent().apply {
+                putExtra(MainActivity.EXTRA_NEW_HABIT_AFTER_LAUNCH, true)
+            }
             @Suppress("DEPRECATION")
-            startActivityAndCollapse(newHabitIntent())
+            startActivityAndCollapse(intent)
+            // MIUI 等定制 ROM 改写了 SystemUI，startActivityAndCollapse 往往只启动
+            // Activity 而不收起快捷面板。补发 CLOSE_SYSTEM_DIALOGS 广播兜底收起。
+            // 第三方 app 在 Android 12+ 发该广播受限，但多数 ROM（含 MIUI）仍放行，
+            // 即使被系统拒绝也只是无效、不会崩溃，故 try-catch 包裹。
+            collapsePanelsFallback()
+        }
+    }
+
+    /** 兜底收起通知栏/快捷面板（应对 startActivityAndCollapse 在定制 ROM 不收起的情况） */
+    private fun collapsePanelsFallback() {
+        try {
+            sendBroadcast(Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS))
+        } catch (_: Throwable) {
+            // 权限受限则忽略，不影响新建习惯页已正常打开
         }
     }
 

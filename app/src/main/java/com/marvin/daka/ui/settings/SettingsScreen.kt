@@ -1,15 +1,13 @@
 package com.marvin.daka.ui.settings
 
-import android.Manifest
 import android.app.Activity
-import android.app.AlarmManager
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
-import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
+import com.marvin.daka.ui.reminder.hasExactAlarmPermission
+import com.marvin.daka.ui.reminder.rememberReminderPermissionGate
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -143,68 +141,18 @@ fun SettingsScreen(
     var pendingImport by remember { mutableStateOf<BackupSummary?>(null) }
 
     /**
-     * 等权限到手之后再落库的提醒设置。
-     *
-     * 为什么要暂存？因为开提醒要过两道系统权限关（通知 + 精确闹钟），
-     * 两关都要跳到系统界面让用户操作，等用户回来时这个 Composable
-     * 可能已经重组过好几次了。不暂存的话，「用户想给哪个习惯设几点」这个意图就丢了。
+     * 提醒权限引导门：把「开提醒要过两道系统权限关」抽成可复用组件，
+     * 和新建/编辑习惯页共用同一套逻辑。被拒时在这里用 snackbar 提示（不写库）。
      */
-    var pendingSave by remember { mutableStateOf<Pair<Long, ReminderConfig>?>(null) }
-
-    // ⚠️ 两个 launcher 的声明顺序不能反：
-    // notificationLauncher 的回调里要调 exactAlarmLauncher，
-    // 而 Kotlin 局部变量**必须先声明再使用**，写反了会「未解析的引用」。
-    val exactAlarmLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) {
-        val pending = pendingSave
-        pendingSave = null
-        scope.launch {
-            if (pending == null) return@launch
-            if (hasExactAlarmPermission(context)) {
-                commitReminder(viewModel, context, pending, snackbarHostState, scope)
-            } else {
-                snackbarHostState.showSnackbar(context.getString(R.string.snack_alarm_perm))
-            }
-        }
-    }
-
-    val notificationLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        val pending = pendingSave ?: return@rememberLauncherForActivityResult
-
-        if (!granted) {
-            pendingSave = null
-            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.snack_notif_perm)) }
-            return@rememberLauncherForActivityResult
-        }
-
-        // 通知过了，还有精确闹钟这一关。继续跳设置页，pendingSave 先留着
-        if (!hasExactAlarmPermission(context)) {
-            exactAlarmLauncher.launch(exactAlarmSettingsIntent(context))
-            return@rememberLauncherForActivityResult
-        }
-
-        pendingSave = null
-        commitReminder(viewModel, context, pending, snackbarHostState, scope)
+    val reminderGate = rememberReminderPermissionGate(context) { msg ->
+        scope.launch { snackbarHostState.showSnackbar(msg) }
     }
 
     /** 统一的保存入口：先过权限关，过了才写库 */
     fun saveReminder(habitId: Long, config: ReminderConfig) {
-        scope.launch {
-            if (config.enabled && !NotificationHelper.hasPermission(context)) {
-                pendingSave = habitId to config
-                notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                return@launch
-            }
-            if (config.enabled && !hasExactAlarmPermission(context)) {
-                pendingSave = habitId to config
-                exactAlarmLauncher.launch(exactAlarmSettingsIntent(context))
-                return@launch
-            }
+        reminderGate.request(config.enabled, onReady = {
             commitReminder(viewModel, context, habitId to config, snackbarHostState, scope)
-        }
+        })
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -1116,23 +1064,6 @@ private fun DefaultReminderTimeItem(prefs: ReminderPrefs) {
         }
     }
 }
-
-// ------------------------------------------------------------------
-// 权限工具
-// ------------------------------------------------------------------
-
-/** Android 12 起要判断能不能用精确闹钟 */
-private fun hasExactAlarmPermission(context: Context): Boolean {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
-    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-    return alarmManager.canScheduleExactAlarms()
-}
-
-/** 跳系统「闹钟和提醒」授权页 */
-private fun exactAlarmSettingsIntent(context: Context) =
-    Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-        data = Uri.parse("package:${context.packageName}")
-    }
 
 // ------------------------------------------------------------------
 // 通用小组件
